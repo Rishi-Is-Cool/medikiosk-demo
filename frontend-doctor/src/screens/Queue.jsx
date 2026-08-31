@@ -16,8 +16,7 @@ const INTAKE = {
   not_started: { label: "Not started", tone: "none" },
 };
 
-export default function Queue({ onOpen }) {
-  const [tab, setTab] = useState("queue");
+export default function Queue({ onOpen, tab, onTab }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -65,7 +64,7 @@ export default function Queue({ onOpen }) {
             role="tab"
             aria-selected={tab === k}
             className={`tab ${tab === k ? "on" : ""}`}
-            onClick={() => setTab(k)}
+            onClick={() => onTab(k)}
           >
             {label}
           </button>

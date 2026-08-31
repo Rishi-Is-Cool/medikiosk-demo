@@ -24,8 +24,9 @@ import EvidencePanel from "../components/EvidencePanel.jsx";
 import LedgerModal from "../components/LedgerModal.jsx";
 import CarryForwardModal from "../components/CarryForwardModal.jsx";
 import AdvicePanel from "../components/AdvicePanel.jsx";
+import PatientRail from "../components/PatientRail.jsx";
 
-export default function Encounter({ encounterId, showAyush, onBack }) {
+export default function Encounter({ encounterId, showAyush, patients = [], onSelectPatient, onBack }) {
   const [snap, setSnap] = useState(null);
   const [error, setError] = useState("");
   const [view, setView] = useState(null);
@@ -38,10 +39,12 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
   const [carriedFrom, setCarriedFrom] = useState(""); // survives closing the dialog
   const [advice, setAdvice] = useState([]);        // Docon #10 selections
   const [ayushEdits, setAyushEdits] = useState([]); // doctor amendments to the kiosk reading
+  const [railCollapsed, setRailCollapsed] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setSnap(null);
+    setError("");
     setView(null);
     setFinalised(false);
     setCarried([]);
@@ -102,14 +105,47 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
     setFinalised(true);
   }
 
-  if (error) return <p className="screen-msg">Could not load the snapshot — {error}</p>;
-  if (!snap) return <p className="screen-msg">Loading snapshot…</p>;
+  const rail = patients.length ? (
+    <PatientRail
+      patients={patients}
+      activeId={encounterId}
+      onSelect={onSelectPatient}
+      collapsed={railCollapsed}
+      onToggle={() => setRailCollapsed((v) => !v)}
+    />
+  ) : null;
+
+  /* Loading and failure states keep the shell. A doctor who taps a patient
+     whose snapshot will not load must still be able to reach the next one. */
+  if (error || !snap) {
+    return (
+      <div className={`shell ${railCollapsed ? "rail-tight" : ""}`}>
+        {rail}
+        <div className="encounter">
+          <header className="idstrip">
+            <button type="button" className="btn btn-quiet" onClick={onBack}>
+              ← Queue
+            </button>
+            <h1 className="pname">{patients.find((p) => p.encounter_id === encounterId)?.name ?? "Patient"}</h1>
+          </header>
+          <p className="screen-msg">
+            {error
+              ? "No snapshot for this patient in the demo dataset — Rahul Verma and Anjali Deshmukh are the two seeded encounters. Pick either from the list."
+              : "Loading snapshot…"}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const s = snap.sections;
   const suppressed = snap.ayush_status === "suppressed_by_viewer";
 
   return (
-    <div className="encounter">
+    <div className={`shell ${railCollapsed ? "rail-tight" : ""}`}>
+      {rail}
+
+      <div className="encounter">
       {/* identity — never leaves the screen */}
       <header className="idstrip">
         <button type="button" className="btn btn-quiet" onClick={onBack}>
@@ -260,6 +296,8 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
           {finalised ? "Finalised" : "Confirm and finalise"}
         </button>
       </form>
+
+      </div>
 
       {carry ? (
         <CarryForwardModal
