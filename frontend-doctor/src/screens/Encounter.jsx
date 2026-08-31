@@ -40,6 +40,7 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
   const [advice, setAdvice] = useState([]);        // Docon #10 selections
   const [ayushEdits, setAyushEdits] = useState([]); // doctor amendments to the kiosk reading
   const [railCollapsed, setRailCollapsed] = useState(false);
+  const [evCollapsed, setEvCollapsed] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -60,6 +61,7 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
   }, [encounterId, showAyush]);
 
   async function openSource(source) {
+    setEvCollapsed(false);
     if (source.type === "document") {
       setView({ kind: "loading", title: "Evidence" });
       const doc = await fetchDocument(source.id);
@@ -86,6 +88,7 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
     e.preventDefault();
     const q = question.trim();
     if (!q) return;
+    setEvCollapsed(false);
     setView({ kind: "loading", title: "Answer" });
     const res = await askQuestion(encounterId, q);
     setView({ kind: "answer", title: "Answer", ...res });
@@ -123,9 +126,6 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
         {rail}
         <div className="encounter">
           <header className="idstrip">
-            <button type="button" className="btn btn-quiet" onClick={onBack}>
-              ← Queue
-            </button>
             <h1 className="pname">{patients.find((p) => p.encounter_id === encounterId)?.name ?? "Patient"}</h1>
           </header>
           <p className="screen-msg">
@@ -148,9 +148,6 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
       <div className="encounter">
       {/* identity — never leaves the screen */}
       <header className="idstrip">
-        <button type="button" className="btn btn-quiet" onClick={onBack}>
-          ← Queue
-        </button>
         <h1 className="pname">{snap.patient.name}</h1>
         <span className="pmeta mk-num">
           {snap.patient.age_years} y · {snap.patient.sex === "female" ? "F" : "M"} · ABHA{" "}
@@ -170,7 +167,10 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
 
       <AlertBar alerts={snap.alerts} onOpenSource={openSource} />
 
-      <div className="split">
+      <div
+        className={`split ${evCollapsed ? "ev-tight" : ""}`}
+        style={{ gridTemplateColumns: evCollapsed ? "minmax(0, 1fr) 44px" : "minmax(0, 62fr) minmax(0, 38fr)" }}
+      >
         <div className="left">
           {/* Zone 1 — the ten-second read. Does not scroll. */}
           <section className="band zone1">
@@ -270,7 +270,12 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
           </section>
         </div>
 
-        <EvidencePanel view={view} onClose={() => setView(null)} />
+        <EvidencePanel
+          view={view}
+          onClose={() => setView(null)}
+          collapsed={evCollapsed}
+          onToggle={() => setEvCollapsed((v) => !v)}
+        />
       </div>
 
       <form className="actionbar" onSubmit={ask}>

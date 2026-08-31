@@ -4,16 +4,49 @@
 
 import SourceChip from "./SourceChip.jsx";
 
-export default function EvidencePanel({ view, onClose }) {
+export default function EvidencePanel({ view, onClose, collapsed, onToggle }) {
+  /* Collapsed it is a 44px rail, the mirror of the patient list on the left.
+     An empty panel holding 38% of the width is width the clinical content
+     should have. */
+  if (collapsed) {
+    return (
+      <aside className="evidence evidence-collapsed" aria-label="Evidence">
+        <button
+          type="button"
+          className="ev-toggle"
+          onClick={onToggle}
+          aria-label="Show evidence panel"
+          aria-expanded="false"
+          title="Show evidence panel"
+        >
+          <span aria-hidden="true">‹</span>
+        </button>
+        <span className="ev-spine">Evidence</span>
+        {view ? <span className="ev-dot" aria-label="Evidence is open" /> : null}
+      </aside>
+    );
+  }
+
   return (
     <aside className="evidence" aria-label="Evidence">
       <header className="evhead">
         <h2 className="evtitle">{view?.title ?? "Evidence"}</h2>
+        <span className="spacer" />
         {view ? (
           <button type="button" className="btn btn-quiet" onClick={onClose}>
-            Close
+            Clear
           </button>
         ) : null}
+        <button
+          type="button"
+          className="ev-toggle"
+          onClick={onToggle}
+          aria-label="Collapse evidence panel"
+          aria-expanded="true"
+          title="Collapse evidence panel"
+        >
+          <span aria-hidden="true">›</span>
+        </button>
       </header>
 
       <div className="evbody">
