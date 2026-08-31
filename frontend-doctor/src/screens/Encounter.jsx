@@ -37,6 +37,7 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
   const [carried, setCarried] = useState([]);      // what was brought forward
   const [carriedFrom, setCarriedFrom] = useState(""); // survives closing the dialog
   const [advice, setAdvice] = useState([]);        // Docon #10 selections
+  const [ayushEdits, setAyushEdits] = useState([]); // doctor amendments to the kiosk reading
 
   useEffect(() => {
     let alive = true;
@@ -46,6 +47,7 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
     setCarried([]);
     setCarriedFrom("");
     setAdvice([]);
+    setAyushEdits([]);
     fetchSnapshot(encounterId, { viewerShowsAyush: showAyush })
       .then((d) => alive && setSnap(d))
       .catch((e) => alive && setError(e.message));
@@ -94,7 +96,7 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
 
   async function commitLedger(entry) {
     setSaving(true);
-    await saveLedger(encounterId, { ...entry, advice: advice.map((a) => a.id), carried_forward: carried.map((c) => c.key) });
+    await saveLedger(encounterId, { ...entry, advice: advice.map((a) => a.id), carried_forward: carried.map((c) => c.key), ayush_amendments: ayushEdits });
     setSaving(false);
     setLedgerOpen(false);
     setFinalised(true);
@@ -185,7 +187,11 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
             </dl>
           </section>
 
-          <DashavidhaPanel ayush={snap.ayush} onOpenSource={openSource} />
+          <DashavidhaPanel
+            ayush={snap.ayush}
+            onOpenSource={openSource}
+            onEdit={(e) => setAyushEdits((prev) => [...prev.filter((p) => p.key !== e.key), e])}
+          />
 
           <section className="band">
             <h2 className="bandhead">{snap.trend.label}</h2>

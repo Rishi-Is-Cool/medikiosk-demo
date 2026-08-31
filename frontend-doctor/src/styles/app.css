@@ -245,10 +245,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .seg.kapha { background: var(--primary); }
 .dosha-value { font-size: var(--fs-sm); font-weight: var(--weight-bold); }
 
-.dash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.dash-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
 .dv { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-2); min-width: 0; }
 .dv dt { font-size: var(--fs-xs); color: var(--text-2); }
-.dv dd { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: var(--weight-bold); margin-top: 2px; }
+.dv dd { display: block; font-size: var(--fs-sm); margin-top: 2px; }
 .grade-word { text-transform: capitalize; }
 .dv dd[data-grade="avara"] .grade-word { color: var(--grade-low); }
 .dv dd[data-grade="madhyama"] .grade-word { color: var(--text); }
@@ -500,3 +500,77 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .durow { grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) 120px 90px; }
   .durow .qm:last-of-type { display: none; }
 }
+
+/* ======================================================================
+   C10 CATALOGUE — search · most-frequent · A–Z · index rail
+   Reused for advice today, diagnoses and investigations later.
+   ====================================================================== */
+
+.cat-controls { display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-2); }
+.cat-search {
+  flex: 1; min-width: 0; min-height: var(--target-min);
+  padding: 5px var(--space-2); font-size: var(--fs-sm);
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+.cat-filters { display: flex; gap: 2px; }
+.cat-empty { font-size: var(--fs-sm); color: var(--text-3); }
+.cat-body { display: flex; gap: var(--space-2); align-items: flex-start; }
+.cat-main { flex: 1; min-width: 0; max-height: 300px; overflow-y: auto; padding-right: 2px; }
+.cat-grouph, .cat-letter {
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: var(--weight-normal);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-3);
+  margin: 0 0 var(--space-1); position: sticky; top: 0;
+  background: var(--card); padding: 2px 0;
+}
+.cat-section { margin-top: var(--space-2); }
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px; }
+.cat-item {
+  display: flex; align-items: center; gap: 6px; text-align: left;
+  padding: var(--space-2); font-size: var(--fs-sm);
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer;
+}
+.cat-item:hover { background: var(--row-hover); }
+.cat-item.on { border-color: var(--primary); background: var(--primary-soft); }
+/* The category is a word, never only a border colour — see Catalogue.jsx */
+.cat-kind {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: .06em;
+  padding: 1px 5px; border: 1px solid currentColor; border-radius: 2px;
+  flex: none; color: var(--text-3);
+}
+.cat-item[data-kind="pathya"] .cat-kind  { color: var(--primary); }
+.cat-item[data-kind="apathya"] .cat-kind { color: var(--warning); }
+.cat-text { flex: 1; min-width: 0; }
+.cat-count { font-size: var(--fs-xs); color: var(--text-3); flex: none; }
+.cat-index {
+  display: flex; flex-direction: column; gap: 1px; flex: none;
+  padding: var(--space-1) 2px;
+  border-left: 1px solid var(--line);
+}
+.cat-index button {
+  font-family: var(--font-mono); font-size: 10px; line-height: 1.4;
+  width: 18px; padding: 1px 0;
+  background: transparent; color: var(--text-3);
+  border: 0; border-radius: 2px; cursor: pointer;
+}
+.cat-index button:hover { background: var(--primary-soft); color: var(--primary); }
+
+/* --- Dashavidha: amendable grades ------------------------------------- */
+
+.dv dt { display: flex; align-items: center; gap: 6px; }
+.dv[data-edited] { border-color: var(--success); background: var(--success-soft); }
+.grades { display: flex; gap: 2px; margin-top: 4px; width: 100%; }
+.grade-seg {
+  flex: 1; min-width: 0; padding: 4px 2px;
+  font-size: var(--fs-xs); font-weight: var(--weight-medium);
+  background: var(--card); color: var(--text-3);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.grade-seg:hover { background: var(--row-hover); color: var(--text); }
+.grade-seg.on[data-grade="avara"]    { background: var(--grade-low);  border-color: var(--grade-low);  color: var(--card); }
+.grade-seg.on[data-grade="madhyama"] { background: var(--grade-mid);  border-color: var(--grade-mid);  color: var(--card); }
+.grade-seg.on[data-grade="pravara"]  { background: var(--grade-high); border-color: var(--grade-high); color: var(--card); }
+.dv-edited { font-size: var(--fs-xs); color: var(--success); margin-top: 4px; }
+.dv-edited span { text-transform: capitalize; font-weight: var(--weight-medium); }
