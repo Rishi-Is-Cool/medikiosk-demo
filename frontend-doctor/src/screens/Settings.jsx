@@ -8,9 +8,12 @@
    The rail is the point, not the contents: it is the same two-pane shape as
    the encounter screen, so a doctor never learns a second navigation model. */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchDoctorProfile, saveDoctorProfile } from "../api/client.js";
+import { initials } from "./Patients.jsx";
 
 const SECTIONS = [
+  { key: "profile", label: "Your profile" },
   { key: "practitioner", label: "Practitioner view" },
   { key: "queue", label: "Queue and triage" },
   { key: "modules", label: "Department modules" },
@@ -20,7 +23,7 @@ const SECTIONS = [
 ];
 
 export default function Settings({ showAyush, onToggleAyush, onBack }) {
-  const [active, setActive] = useState("practitioner");
+  const [active, setActive] = useState("profile");
 
   return (
     <div className="settings">
@@ -47,6 +50,8 @@ export default function Settings({ showAyush, onToggleAyush, onBack }) {
         </nav>
 
         <div className="set-pane">
+          {active === "profile" ? <ProfileSection /> : null}
+
           {active === "practitioner" ? (
             <Section
               title="Practitioner view"
@@ -120,9 +125,10 @@ export default function Settings({ showAyush, onToggleAyush, onBack }) {
               title="Letterhead and signature"
               note="The institution header printed on every document is configuration, not markup — every deployment prints under a different name."
             >
-              <Row label="Institution" help=""><span className="set-value">All India Institute of Ayurveda</span></Row>
-              <Row label="Department" help=""><span className="set-value">Ayurveda OPD, Ground floor</span></Row>
-              <Row label="Practitioner registration" help="Shown on printed advice and referral notes."><span className="set-value">HPR 71-4402-9915</span></Row>
+              <p className="set-limit">
+                The letterhead is your profile, rendered. Edit it under <b>Your profile</b> — there is no
+                second copy to keep in step, and nothing about it is hardcoded.
+              </p>
             </Section>
           ) : null}
 
@@ -157,6 +163,88 @@ function Row({ label, help, children }) {
         {help ? <span className="set-help">{help}</span> : null}
       </span>
       {children}
+    </div>
+  );
+}
+
+
+/* The profile is also the letterhead block on every printed document, which
+   is why it is edited here rather than buried: a stale name prints. */
+function ProfileSection() {
+  const [p, setP] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetchDoctorProfile().then((d) => {
+      setP(d);
+      setDraft(d);
+    });
+  }, []);
+
+  if (!draft) return <p className="screen-msg">Loading profile…</p>;
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(p);
+  const set = (k) => (e) => {
+    setDraft({ ...draft, [k]: e.target.value });
+    setSaved(false);
+  };
+
+  async function save() {
+    setSaving(true);
+    const next = await saveDoctorProfile(draft);
+    setP(next);
+    setDraft(next);
+    setSaving(false);
+    setSaved(true);
+  }
+
+  return (
+    <Section
+      title="Your profile"
+      note="This is what prints at the top of every patient sheet, advice note and referral. Changing it here changes every document."
+    >
+      <div className="prof-head">
+        <span className="avatar avatar-lg" aria-hidden="true">{initials(draft.name)}</span>
+        <div>
+          <p className="prof-name">{draft.name}</p>
+          <p className="prof-sub">{draft.qualifications}</p>
+          <p className="prof-sub">{draft.title}</p>
+        </div>
+      </div>
+
+      <Field label="Name" help="As it should appear on documents." value={draft.name} onChange={set("name")} />
+      <Field label="Qualifications" help="Degrees and diplomas, comma separated." value={draft.qualifications} onChange={set("qualifications")} />
+      <Field label="Title" help="Consultant Physician, Medical Officer, and so on." value={draft.title} onChange={set("title")} />
+      <Field label="Registration number" help="Printed in the footer of every document." value={draft.registration} onChange={set("registration")} />
+      <Field label="Institution" help="" value={draft.clinic_name} onChange={set("clinic_name")} />
+      <Field label="Department" help="" value={draft.department} onChange={set("department")} />
+      <Field label="Tagline" help="Optional. Printed in Devanagari beneath the institution name." value={draft.tagline} onChange={set("tagline")} />
+      <Field label="Slogan" help="Optional. Printed in quotation marks." value={draft.slogan} onChange={set("slogan")} />
+      <Field label="Address" help="" value={draft.address} onChange={set("address")} />
+
+      <div className="prof-actions">
+        {saved && !dirty ? <span className="prof-saved">Saved</span> : null}
+        <button type="button" className="btn" disabled={!dirty} onClick={() => setDraft(p)}>
+          Discard changes
+        </button>
+        <button type="button" className="btn btn-primary" disabled={!dirty || saving} onClick={save}>
+          {saving ? "Saving…" : "Save profile"}
+        </button>
+      </div>
+    </Section>
+  );
+}
+
+function Field({ label, help, value, onChange }) {
+  return (
+    <div className="set-row">
+      <span className="set-label">
+        {label}
+        {help ? <span className="set-help">{help}</span> : null}
+      </span>
+      <input className="prof-input" value={value ?? ""} onChange={onChange} aria-label={label} />
     </div>
   );
 }

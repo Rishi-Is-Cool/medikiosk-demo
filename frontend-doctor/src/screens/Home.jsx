@@ -20,7 +20,7 @@ const WEEK = [
   { day: "Sat", seen: 34 },
 ];
 
-export default function Home({ onEnterClinic, onOpenDueBack, onOpenSettings }) {
+export default function Home({ onEnterClinic, onOpenDueBack, onOpenPatients, onOpenSettings }) {
   const [queue, setQueue] = useState(null);
   const [due, setDue] = useState(null);
 
@@ -109,7 +109,12 @@ export default function Home({ onEnterClinic, onOpenDueBack, onOpenSettings }) {
             </span>
           </button>
 
-          <div className="tile-row">
+          <div className="tile-row tile-row-3">
+            <button type="button" className="tile" onClick={onOpenPatients}>
+              <span className="tile-num">☰</span>
+              <span className="tile-label">Patients</span>
+              <span className="tile-sub">All records</span>
+            </button>
             <button type="button" className="tile" onClick={onOpenDueBack}>
               <span className="tile-num mk-num">{due?.length ?? "—"}</span>
               <span className="tile-label">Due back</span>

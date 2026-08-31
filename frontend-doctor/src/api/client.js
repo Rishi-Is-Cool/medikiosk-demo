@@ -10,6 +10,9 @@ import {
   CARRY_FORWARD,
   ADVICE_LIBRARY,
   DUE_BACK,
+  PATIENT_DIRECTORY,
+  PATIENT_RECORDS,
+  DOCTOR_PROFILE,
 } from "./mock.js";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "0";
@@ -113,4 +116,43 @@ export async function fetchDueBack() {
     return structuredClone(DUE_BACK).sort((a, b) => b.days_overdue - a.days_overdue);
   }
   return get("/api/reports/due-back");
+}
+
+export async function fetchPatients() {
+  if (USE_MOCKS) {
+    await sleep(200);
+    return structuredClone(PATIENT_DIRECTORY);
+  }
+  return get("/api/patients");
+}
+
+export async function fetchPatientRecord(patientId) {
+  if (USE_MOCKS) {
+    await sleep(180);
+    const p = PATIENT_DIRECTORY.find((x) => x.patient_id === patientId);
+    if (!p) throw new Error(`No patient ${patientId}`);
+    return structuredClone({ ...p, ...(PATIENT_RECORDS[patientId] ?? { timeline: [], appointments: [] }) });
+  }
+  return get(`/api/patients/${patientId}`);
+}
+
+export async function fetchDoctorProfile() {
+  if (USE_MOCKS) {
+    await sleep(80);
+    return structuredClone(DOCTOR_PROFILE);
+  }
+  return get("/api/me");
+}
+
+export async function saveDoctorProfile(profile) {
+  if (USE_MOCKS) {
+    await sleep(300);
+    Object.assign(DOCTOR_PROFILE, profile);
+    return structuredClone(DOCTOR_PROFILE);
+  }
+  return fetch("/api/me", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  }).then((r) => r.json());
 }

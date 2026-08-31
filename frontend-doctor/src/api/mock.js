@@ -425,3 +425,62 @@ export const DUE_BACK = [
   { patient_id: "pat_00889", name: "Farida Sheikh", age_years: 38, sex: "female", due_on: "2026-09-14", days_overdue: -14, reason: "Amavata protocol, week 4", last_seen: "17 Aug 2026", contact: "ABHA-linked app" },
   { patient_id: "pat_00301", name: "Suresh Nair", age_years: 59, sex: "male", due_on: "2026-08-24", days_overdue: 7, reason: "Madhumeha review", last_seen: "27 Jul 2026", contact: "ABHA-linked app" },
 ];
+
+
+/* ---------------------------------------------------------------------------
+   Doctor profile. Doubles as the letterhead block printed on every document —
+   one source, two uses, so a deployment never prints under a stale name.
+   --------------------------------------------------------------------------- */
+
+export const DOCTOR_PROFILE = {
+  doctor_id: "doc_001",
+  name: "Dr. S. Nair",
+  initials: "SN",
+  qualifications: "B.A.M.S., M.D. (Ayurveda)",
+  title: "Consultant Physician",
+  registration: "HPR 71-4402-9915",
+  practitioner_type: "ayurveda",
+  clinic_name: "All India Institute of Ayurveda",
+  tagline: "Sarve santu niramayah",
+  slogan: "May all be free from illness",
+  address: "Mathura Road, Gautam Puri, Sarita Vihar, New Delhi 110076",
+  department: "Ayurveda OPD, Ground floor",
+  languages: ["hi", "en"],
+};
+
+/* ---------------------------------------------------------------------------
+   Patient directory — everyone on file, not just today's clinic. A
+   longitudinal record you cannot search is a contradiction.
+   --------------------------------------------------------------------------- */
+
+export const PATIENT_DIRECTORY = [
+  { patient_id: "pat_00731", name: "Rahul Verma",      age_years: 42, sex: "male",   abha_id: "91-2847-5563-0192", department: "Ayurveda",       last_visit: "2026-08-31", next_appointment: "2026-09-07", visits: 3, conditions: ["Diabetes mellitus type 2", "Hypertension"], allergies: ["Penicillin"], encounter_id: "enc_20260831_0412" },
+  { patient_id: "pat_00982", name: "Anjali Deshmukh",  age_years: 58, sex: "female", abha_id: "91-5510-2284-7731", department: "General med",    last_visit: "2026-08-31", next_appointment: null,         visits: 2, conditions: ["Hypertension"], allergies: [], encounter_id: "enc_20260831_0451" },
+  { patient_id: "pat_00512", name: "Kavita Joshi",     age_years: 52, sex: "female", abha_id: "91-3374-9902-1145", department: "Panchakarma",    last_visit: "2026-08-01", next_appointment: "2026-08-29", visits: 7, conditions: ["Amavata"], allergies: [], encounter_id: null },
+  { patient_id: "pat_00644", name: "Ramesh Gupta",     age_years: 67, sex: "male",   abha_id: "91-7781-2043-8890", department: "Ayurveda",       last_visit: "2026-08-03", next_appointment: "2026-08-31", visits: 11, conditions: ["Hypertension", "Osteoarthritis"], allergies: ["Sulfonamides"], encounter_id: null },
+  { patient_id: "pat_00889", name: "Farida Sheikh",    age_years: 38, sex: "female", abha_id: "91-2290-6614-3372", department: "Ayurveda",       last_visit: "2026-08-17", next_appointment: "2026-09-14", visits: 5, conditions: ["Amavata"], allergies: [], encounter_id: null },
+  { patient_id: "pat_00301", name: "Suresh Nair",      age_years: 59, sex: "male",   abha_id: "91-9915-4408-2216", department: "Ayurveda",       last_visit: "2026-07-27", next_appointment: "2026-08-24", visits: 9, conditions: ["Madhumeha"], allergies: [], encounter_id: null },
+  { patient_id: "pat_01044", name: "Meera Krishnan",   age_years: 31, sex: "female", abha_id: "91-6620-1177-9053", department: "Ayurveda",       last_visit: "2026-08-31", next_appointment: null,         visits: 1, conditions: [], allergies: [], encounter_id: "enc_20260831_0413" },
+  { patient_id: "pat_00755", name: "Iqbal Ansari",     age_years: 64, sex: "male",   abha_id: "91-4417-8830-6621", department: "Ayurveda",       last_visit: "2026-08-31", next_appointment: null,         visits: 6, conditions: ["Diabetes mellitus type 2"], allergies: [], encounter_id: "enc_20260831_0414" },
+  { patient_id: "pat_00920", name: "Sunita Rao",       age_years: 47, sex: "female", abha_id: "91-8802-3391-4470", department: "Ayurveda",       last_visit: "2026-08-31", next_appointment: null,         visits: 2, conditions: ["Amlapitta"], allergies: [], encounter_id: "enc_20260831_0415" },
+  { patient_id: "pat_01180", name: "Devendra Patil",   age_years: 29, sex: "male",   abha_id: "91-1145-7729-0084", department: "Ayurveda",       last_visit: null,         next_appointment: null,         visits: 0, conditions: [], allergies: [], encounter_id: "enc_20260831_0416" },
+  { patient_id: "pat_00408", name: "Lakshmi Iyer",     age_years: 73, sex: "female", abha_id: "91-5563-2208-7714", department: "Ayurveda",       last_visit: "2026-06-14", next_appointment: null,         visits: 14, conditions: ["Sandhigata Vata", "Hypertension"], allergies: ["Aspirin"], encounter_id: null },
+  { patient_id: "pat_00667", name: "Arjun Menon",      age_years: 35, sex: "male",   abha_id: "91-3308-9945-1162", department: "General med",    last_visit: "2026-05-22", next_appointment: null,         visits: 4, conditions: [], allergies: [], encounter_id: null },
+];
+
+/* Per-patient history and appointments for the detail page. */
+export const PATIENT_RECORDS = {
+  pat_00731: {
+    timeline: [
+      { date: "2026-08-31", type: "visit",    title: "Fever with cough, 3 days", detail: "Ayurveda OPD. Vikriti — Pitta-Kapha vriddhi, Amavastha.", by: "Dr. S. Nair" },
+      { date: "2026-08-02", type: "document", title: "Pathology report",         detail: "HbA1c 8.2% (raised), fasting glucose 164 mg/dL (raised).", by: null },
+      { date: "2026-03-14", type: "visit",    title: "Discharged — community-acquired pneumonia", detail: "Metformin and amlodipine continued. Review advised in 4 weeks.", by: "City General Hospital" },
+      { date: "2026-03-11", type: "document", title: "Discharge summary",        detail: "Penicillin allergy documented — urticarial rash.", by: null },
+    ],
+    appointments: [
+      { date: "2026-09-07", reason: "Fever review, 7 days", status: "scheduled" },
+      { date: "2026-08-31", reason: "Fever with cough",     status: "attended" },
+      { date: "2026-03-14", reason: "Post-discharge review", status: "attended" },
+    ],
+  },
+};
