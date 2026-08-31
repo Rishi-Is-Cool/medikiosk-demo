@@ -16,7 +16,7 @@ class GeminiClinicalExtractionProvider(ClinicalExtractionProvider):
     """Concrete extraction provider using Google's Gemini LLMs."""
 
     # Default model suitable for fast structured extraction
-    DEFAULT_MODEL = "gemini-2.5-flash"
+    DEFAULT_MODEL = "gemini-3.6-flash"
 
     # Core instruction enforcing strict extraction bounds
     SYSTEM_INSTRUCTION = (
