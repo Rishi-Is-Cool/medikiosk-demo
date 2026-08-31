@@ -274,3 +274,5 @@ body { overflow: hidden; }
   border: 1px solid var(--line-strong); border-radius: var(--radius); cursor: pointer;
 }
 .ev-toggle:hover { background: var(--row-hover); color: var(--text); }
+
+.sheet-none { font-size: 14px; color: #555555; }

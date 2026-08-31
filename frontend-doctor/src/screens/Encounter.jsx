@@ -25,6 +25,7 @@ import LedgerModal from "../components/LedgerModal.jsx";
 import CarryForwardModal from "../components/CarryForwardModal.jsx";
 import AdvicePanel from "../components/AdvicePanel.jsx";
 import PatientRail from "../components/PatientRail.jsx";
+import PrintSheet from "../components/PrintSheet.jsx";
 
 export default function Encounter({ encounterId, showAyush, patients = [], onSelectPatient, onBack }) {
   const [snap, setSnap] = useState(null);
@@ -41,6 +42,8 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
   const [ayushEdits, setAyushEdits] = useState([]); // doctor amendments to the kiosk reading
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [evCollapsed, setEvCollapsed] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +54,8 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
     setCarried([]);
     setCarriedFrom("");
     setAdvice([]);
+    setPrinting(false);
+    setFollowUpDate(null);
     setAyushEdits([]);
     fetchSnapshot(encounterId, { viewerShowsAyush: showAyush })
       .then((d) => alive && setSnap(d))
@@ -106,6 +111,10 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
     setSaving(false);
     setLedgerOpen(false);
     setFinalised(true);
+    setFollowUpDate(entry.follow_up_required ? dateFromTimeframe(entry.follow_up_timeframe) : null);
+    /* Finishing the encounter is the moment the sheet is wanted — the patient
+       is still in the room. Offering it later, from the record, is too late. */
+    setPrinting(true);
   }
 
   const rail = patients.length ? (
@@ -294,6 +303,13 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
         </button>
         <button
           type="button"
+          className={`btn ${finalised ? "btn-primary" : ""}`}
+          onClick={() => setPrinting(true)}
+        >
+          Patient sheet
+        </button>
+        <button
+          type="button"
           className="btn btn-primary"
           onClick={() => setLedgerOpen(true)}
           disabled={finalised}
@@ -303,6 +319,15 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
       </form>
 
       </div>
+
+      {printing ? (
+        <PrintSheet
+          patient={snap.patient}
+          advice={advice}
+          followUp={followUpDate}
+          onClose={() => setPrinting(false)}
+        />
+      ) : null}
 
       {carry ? (
         <CarryForwardModal
@@ -347,6 +372,19 @@ function Item({ value, sub, source, onOpen, muted }) {
       <SourceChip source={source} onOpen={onOpen} />
     </p>
   );
+}
+
+/* The ledger records "7 days"; the sheet prints a date the patient can read. */
+function dateFromTimeframe(tf) {
+  if (!tf) return null;
+  const m = /^(\d+)\s*(day|week|month)/i.exec(tf);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const d = new Date();
+  if (/day/i.test(m[2])) d.setDate(d.getDate() + n);
+  if (/week/i.test(m[2])) d.setDate(d.getDate() + n * 7);
+  if (/month/i.test(m[2])) d.setMonth(d.getMonth() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 function fmtDate(iso) {

@@ -17,13 +17,7 @@ import { useEffect, useState } from "react";
 import { fetchDoctorProfile } from "../api/client.js";
 import { fmt } from "../screens/Patients.jsx";
 
-const SAMPLE_ADVICE = [
-  { kind: "pathya", text: "Drink lukewarm water through the day", hi: "दिनभर गुनगुना पानी पिएँ" },
-  { kind: "apathya", text: "Avoid curd at night", hi: "रात में दही से परहेज़ करें" },
-  { kind: "pathya", text: "Light, warm, freshly cooked meals", hi: "हल्का, गर्म, ताज़ा बना भोजन लें" },
-];
-
-export default function PrintSheet({ patient, advice = SAMPLE_ADVICE, followUp, onClose }) {
+export default function PrintSheet({ patient, advice = [], followUp, onClose }) {
   const [profile, setProfile] = useState(null);
 
   useEffect(() => {
@@ -67,6 +61,14 @@ export default function PrintSheet({ patient, advice = SAMPLE_ADVICE, followUp, 
 
           <section className="sheet-block">
             <h3>आपके लिए सलाह <span className="sheet-en">Advice for you</span></h3>
+            {!advice.length ? (
+              <p className="sheet-none">
+                No advice was recorded for this visit.
+                <span className="sheet-en-line">
+                  Add pathya and apathya during the encounter and it prints here in the patient's language.
+                </span>
+              </p>
+            ) : null}
             <ul className="sheet-advice">
               {advice.map((a, i) => (
                 <li key={i} data-kind={a.kind}>
