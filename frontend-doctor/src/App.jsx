@@ -8,6 +8,7 @@
 import { useState } from "react";
 import Queue from "./screens/Queue.jsx";
 import Encounter from "./screens/Encounter.jsx";
+import SyncStatus from "./components/SyncStatus.jsx";
 
 export default function App() {
   const [encounterId, setEncounterId] = useState(null);
@@ -28,6 +29,7 @@ export default function App() {
         <span className="devbar-note">
           Derived from HPR practitioner type in production; applied server-side.
         </span>
+        <SyncStatus />
       </div>
 
       {encounterId ? (

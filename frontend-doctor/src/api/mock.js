@@ -353,3 +353,75 @@ export const DEVIATION_REASONS = [
   "Protocol update",
   "Other — specify",
 ];
+
+/* ---------------------------------------------------------------------------
+   Docon #07 — follow-up carry-forward.
+   What the previous encounter left behind, offered for reuse rather than
+   retyping. This is longitudinal patient memory made visible in one dialog.
+   --------------------------------------------------------------------------- */
+
+export const CARRY_FORWARD = {
+  enc_20260831_0412: {
+    from_encounter: "enc_20260314_0088",
+    from_date: "14 Mar 2026",
+    groups: [
+      { key: "symptoms", label: "Symptoms and findings", value: "Productive cough, fever, reduced breath sounds left base" },
+      { key: "diagnosis", label: "Diagnosis", value: "Community-acquired pneumonia; T2DM; Hypertension" },
+      { key: "medicines", label: "Medicines", value: "Metformin 500mg BD · Amlodipine 5mg OD" },
+      { key: "investigations", label: "Investigations", value: "HbA1c, Fasting glucose, Chest radiograph" },
+      { key: "advice", label: "Advice", value: "Warm water only · Avoid curd at night · Review in 4 weeks" },
+    ],
+  },
+  enc_20260831_0451: {
+    from_encounter: "enc_20251102_0455",
+    from_date: "02 Nov 2025",
+    groups: [
+      { key: "symptoms", label: "Symptoms and findings", value: "Asymptomatic; routine review" },
+      { key: "diagnosis", label: "Diagnosis", value: "Essential hypertension" },
+      { key: "medicines", label: "Medicines", value: "Telmisartan 40mg OD" },
+      { key: "investigations", label: "Investigations", value: "Serum creatinine, Lipid profile" },
+      { key: "advice", label: "Advice", value: "Reduce added salt · Walk 30 minutes daily" },
+    ],
+  },
+};
+
+/* ---------------------------------------------------------------------------
+   Docon #10 — reusable advice library, read as pathya / apathya.
+   Dietary and conduct guidance is a far larger share of an Ayurvedic
+   consultation than of a GP's, and it is the part most often lost to
+   handwriting. Entries are coded so they can be printed in the patient's
+   language and counted in aggregate reporting.
+   Frequency ranking is Docon #05 — used_count drives the "most used" block.
+   --------------------------------------------------------------------------- */
+
+export const ADVICE_LIBRARY = [
+  { id: "adv_001", kind: "pathya", text: "Drink lukewarm water through the day", hi: "दिनभर गुनगुना पानी पिएँ", used_count: 412 },
+  { id: "adv_002", kind: "apathya", text: "Avoid curd at night", hi: "रात में दही से परहेज़ करें", used_count: 388 },
+  { id: "adv_003", kind: "pathya", text: "Steam inhalation twice daily", hi: "दिन में दो बार भाप लें", used_count: 341 },
+  { id: "adv_004", kind: "apathya", text: "Avoid cold and refrigerated foods", hi: "ठंडे और फ्रिज़ के भोजन से बचें", used_count: 297 },
+  { id: "adv_005", kind: "pathya", text: "Light, warm, freshly cooked meals", hi: "हल्का, गर्म, ताज़ा बना भोजन लें", used_count: 264 },
+  { id: "adv_006", kind: "apathya", text: "Avoid daytime sleep", hi: "दिन में सोने से बचें", used_count: 233 },
+  { id: "adv_007", kind: "pathya", text: "Walk 30 minutes daily", hi: "रोज़ 30 मिनट टहलें", used_count: 201 },
+  { id: "adv_008", kind: "apathya", text: "Avoid spicy and fermented food", hi: "मसालेदार और खमीरी भोजन से बचें", used_count: 187 },
+  { id: "adv_009", kind: "pathya", text: "Sleep by 10 pm", hi: "रात 10 बजे तक सो जाएँ", used_count: 154 },
+  { id: "adv_010", kind: "pathya", text: "Pranayama for 10 minutes each morning", hi: "हर सुबह 10 मिनट प्राणायाम करें", used_count: 142 },
+  { id: "adv_011", kind: "apathya", text: "Avoid suppressing natural urges", hi: "प्राकृतिक वेगों को न रोकें", used_count: 96 },
+  { id: "adv_012", kind: "pathya", text: "Reduce added salt", hi: "नमक की मात्रा कम करें", used_count: 88 },
+  { id: "adv_013", kind: "apathya", text: "Avoid exertion until fever settles", hi: "बुखार उतरने तक परिश्रम न करें", used_count: 74 },
+  { id: "adv_014", kind: "pathya", text: "Buttermilk with roasted cumin after lunch", hi: "दोपहर के भोजन के बाद भुने जीरे के साथ छाछ", used_count: 61 },
+];
+
+/* ---------------------------------------------------------------------------
+   Docon #16 — who is due back, as a report rather than a memory.
+   Panchakarma and most classical protocols run for weeks, so adherence is
+   the outcome that decides whether the treatment worked. Populated from
+   ledger follow-up entries, which closes the loop from the finalise form.
+   --------------------------------------------------------------------------- */
+
+export const DUE_BACK = [
+  { patient_id: "pat_00512", name: "Kavita Joshi", age_years: 52, sex: "female", due_on: "2026-08-29", days_overdue: 2, reason: "Panchakarma review — Virechana follow-up", last_seen: "01 Aug 2026", contact: "ABHA-linked app" },
+  { patient_id: "pat_00644", name: "Ramesh Gupta", age_years: 67, sex: "male", due_on: "2026-08-31", days_overdue: 0, reason: "Hypertension review", last_seen: "03 Aug 2026", contact: "ABHA-linked app" },
+  { patient_id: "pat_00731", name: "Rahul Verma", age_years: 42, sex: "male", due_on: "2026-09-07", days_overdue: -7, reason: "Fever review, 7 days", last_seen: "31 Aug 2026", contact: "ABHA-linked app" },
+  { patient_id: "pat_00889", name: "Farida Sheikh", age_years: 38, sex: "female", due_on: "2026-09-14", days_overdue: -14, reason: "Amavata protocol, week 4", last_seen: "17 Aug 2026", contact: "ABHA-linked app" },
+  { patient_id: "pat_00301", name: "Suresh Nair", age_years: 59, sex: "male", due_on: "2026-08-24", days_overdue: 7, reason: "Madhumeha review", last_seen: "27 Jul 2026", contact: "ABHA-linked app" },
+];

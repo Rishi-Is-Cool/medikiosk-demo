@@ -9,13 +9,21 @@
    away, not one navigation away. */
 
 import { useEffect, useState } from "react";
-import { fetchSnapshot, fetchDocument, askQuestion, saveLedger } from "../api/client.js";
+import {
+  fetchSnapshot,
+  fetchDocument,
+  askQuestion,
+  saveLedger,
+  fetchCarryForward,
+} from "../api/client.js";
 import AlertBar from "../components/AlertBar.jsx";
 import SourceChip from "../components/SourceChip.jsx";
 import TrendTable from "../components/TrendTable.jsx";
 import DashavidhaPanel from "../components/DashavidhaPanel.jsx";
 import EvidencePanel from "../components/EvidencePanel.jsx";
 import LedgerModal from "../components/LedgerModal.jsx";
+import CarryForwardModal from "../components/CarryForwardModal.jsx";
+import AdvicePanel from "../components/AdvicePanel.jsx";
 
 export default function Encounter({ encounterId, showAyush, onBack }) {
   const [snap, setSnap] = useState(null);
@@ -25,12 +33,19 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [finalised, setFinalised] = useState(false);
+  const [carry, setCarry] = useState(null);        // Docon #07 dialog payload
+  const [carried, setCarried] = useState([]);      // what was brought forward
+  const [carriedFrom, setCarriedFrom] = useState(""); // survives closing the dialog
+  const [advice, setAdvice] = useState([]);        // Docon #10 selections
 
   useEffect(() => {
     let alive = true;
     setSnap(null);
     setView(null);
     setFinalised(false);
+    setCarried([]);
+    setCarriedFrom("");
+    setAdvice([]);
     fetchSnapshot(encounterId, { viewerShowsAyush: showAyush })
       .then((d) => alive && setSnap(d))
       .catch((e) => alive && setError(e.message));
@@ -72,9 +87,14 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
     setQuestion("");
   }
 
+  async function openCarryForward() {
+    const data = await fetchCarryForward(encounterId);
+    if (data) setCarry(data);
+  }
+
   async function commitLedger(entry) {
     setSaving(true);
-    await saveLedger(encounterId, entry);
+    await saveLedger(encounterId, { ...entry, advice: advice.map((a) => a.id), carried_forward: carried.map((c) => c.key) });
     setSaving(false);
     setLedgerOpen(false);
     setFinalised(true);
@@ -172,6 +192,28 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
             <TrendTable trend={snap.trend} onOpenSource={openSource} />
           </section>
 
+          {carried.length ? (
+            <section className="band carried">
+              <h2 className="bandhead">
+                Carried forward from {carriedFrom}
+              </h2>
+              <dl className="cf-applied">
+                {carried.map((c) => (
+                  <div key={c.key}>
+                    <dt>{c.label}</dt>
+                    <dd>{c.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+
+          <AdvicePanel
+            selected={advice}
+            onChange={setAdvice}
+            language={snap.patient.preferred_language}
+          />
+
           <section className="band last">
             <h2 className="bandhead">On file — not shown</h2>
             <div className="badges">
@@ -197,7 +239,7 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
           placeholder="Ask about this patient — “what happened during his last visit?”"
           aria-label="Ask about this patient"
         />
-        <button type="button" className="btn" onClick={() => alert("Carry-forward dialog — not built yet")}>
+        <button type="button" className="btn" onClick={openCarryForward}>
           Carry forward
         </button>
         <button type="button" className="btn" onClick={() => alert("Inline editing — not built yet")}>
@@ -212,6 +254,18 @@ export default function Encounter({ encounterId, showAyush, onBack }) {
           {finalised ? "Finalised" : "Confirm and finalise"}
         </button>
       </form>
+
+      {carry ? (
+        <CarryForwardModal
+          data={carry}
+          onCancel={() => setCarry(null)}
+          onApply={(groups) => {
+            setCarried(groups);
+            setCarriedFrom(carry.from_date);
+            setCarry(null);
+          }}
+        />
+      ) : null}
 
       {ledgerOpen ? (
         <LedgerModal

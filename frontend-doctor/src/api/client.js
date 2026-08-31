@@ -3,7 +3,14 @@
    no component changes, the shapes are already identical to
    shared/snapshot-contract.json. */
 
-import { QUEUE, SNAPSHOTS, DOCUMENT_BODIES } from "./mock.js";
+import {
+  QUEUE,
+  SNAPSHOTS,
+  DOCUMENT_BODIES,
+  CARRY_FORWARD,
+  ADVICE_LIBRARY,
+  DUE_BACK,
+} from "./mock.js";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "0";
 const LATENCY_MS = 220; // keep the loading states honest during development
@@ -78,4 +85,32 @@ export async function saveLedger(encounterId, entry) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(entry),
   }).then((r) => r.json());
+}
+
+/* --- Docon-derived endpoints ------------------------------------------- */
+
+export async function fetchCarryForward(encounterId) {
+  if (USE_MOCKS) {
+    await sleep(180);
+    return structuredClone(CARRY_FORWARD[encounterId] ?? null);
+  }
+  return get(`/api/encounters/${encounterId}/carry-forward`);
+}
+
+/* Frequency ranking is applied server-side in production, per site and per
+   practitioner from actual usage — a fixed "common" list feels pre-baked. */
+export async function fetchAdviceLibrary() {
+  if (USE_MOCKS) {
+    await sleep(140);
+    return structuredClone(ADVICE_LIBRARY).sort((a, b) => b.used_count - a.used_count);
+  }
+  return get("/api/advice-library");
+}
+
+export async function fetchDueBack() {
+  if (USE_MOCKS) {
+    await sleep(200);
+    return structuredClone(DUE_BACK).sort((a, b) => b.days_overdue - a.days_overdue);
+  }
+  return get("/api/reports/due-back");
 }

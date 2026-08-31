@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchQueue } from "../api/client.js";
+import DueBack from "../components/DueBack.jsx";
 
 const INTAKE = {
   ready: { label: "Snapshot ready", tone: "ready" },
@@ -16,6 +17,7 @@ const INTAKE = {
 };
 
 export default function Queue({ onOpen }) {
+  const [tab, setTab] = useState("queue");
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -31,10 +33,6 @@ export default function Queue({ onOpen }) {
 
   if (error) return <p className="screen-msg">Could not load the queue — {error}</p>;
   if (!data) return <p className="screen-msg">Loading queue…</p>;
-
-  const priority = data.patients.filter((p) => p.priority);
-  const current = data.patients.filter((p) => p.in_consultation);
-  const waiting = data.patients.filter((p) => !p.priority && !p.in_consultation);
 
   return (
     <div className="queue">
@@ -55,6 +53,37 @@ export default function Queue({ onOpen }) {
 
       {/* The only place the build says anything measurable about throughput,
           which is what the problem statement actually argues from. */}
+      {/* Docon #16 — who is due back belongs beside the queue, not in a
+          separate report nobody opens. */}
+      <nav className="tabs" role="tablist">
+        {[
+          ["queue", "Today's queue"],
+          ["due", "Due back"],
+        ].map(([k, label]) => (
+          <button
+            key={k}
+            role="tab"
+            aria-selected={tab === k}
+            className={`tab ${tab === k ? "on" : ""}`}
+            onClick={() => setTab(k)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "due" ? <DueBack /> : <QueueList data={data} onOpen={onOpen} />}
+    </div>
+  );
+}
+
+function QueueList({ data, onOpen }) {
+  const priority = data.patients.filter((p) => p.priority);
+  const current = data.patients.filter((p) => p.in_consultation);
+  const waiting = data.patients.filter((p) => !p.priority && !p.in_consultation);
+
+  return (
+    <>
       <div className="stats">
         <Stat n="Seen today" v={data.stats.seen_today} />
         <Stat n="In queue" v={data.stats.in_queue} />
@@ -84,7 +113,7 @@ export default function Queue({ onOpen }) {
       {waiting.map((p) => (
         <Row key={p.encounter_id} p={p} onOpen={onOpen} cta="Open" />
       ))}
-    </div>
+    </>
   );
 }
 
