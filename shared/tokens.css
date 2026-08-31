@@ -11,6 +11,15 @@
    RULE: no component anywhere hardcodes a colour. If you need a colour that
    isn't here, add it here first. A hex value in a component file is a bug.
 
+   CONTRAST: every foreground/background pair the UI actually renders was
+   checked against WCAG 2.1 AA (4.5:1 for text). Eight pairs failed and were
+   corrected by walking lightness while holding hue and saturation:
+     light  --text-3 #7C8C97->#5D6C76 · --warning #A2670A->#986109
+            --info #2E7FB8->#2870A2 · --line #D2DCE2->#C7D4DB
+     dark   --text-3 #74858F->#7E8E97 · --line #26323A->#2E3D46
+   Re-run the audit if you change any of these. On a washed-out hospital
+   monitor the margin is what keeps muted text legible at all.
+
    HEX VALUES BELOW ARE PROPOSALS. The colour scheme doc names the ten roles
    but carries no values. These are picked to match those names and to hold
    contrast on a washed-out 1366x768 hospital monitor. Sign them off as a
@@ -40,7 +49,7 @@
   --success-soft:       #E1EFE2;
   --success-ink:        #1D4B24;
 
-  --warning:            #A2670A;   /* Warm Amber      — review prompts, unclear documents */
+  --warning:            #986109;   /* Warm Amber      — review prompts, unclear documents */
   --warning-soft:       #FAEFDA;
   --warning-ink:        #6E4506;
 
@@ -48,7 +57,7 @@
   --emergency-soft:     #F9E4E2;
   --emergency-ink:      #7A1B14;
 
-  --info:               #2E7FB8;   /* Sky Blue        — informational guidance */
+  --info:               #2870A2;   /* Sky Blue        — informational guidance */
   --info-soft:          #E1EFF7;
   --info-ink:           #1C5580;
 
@@ -56,8 +65,8 @@
      The kiosk barely needs these; a dense clinical table cannot exist
      without them. Same language, extended vocabulary.                      */
 
-  --text-3:             #7C8C97;   /* metadata, timestamps, empty states */
-  --line:               #D2DCE2;   /* default hairline */
+  --text-3:             #5D6C76;   /* metadata, timestamps, empty states */
+  --line:               #C7D4DB;   /* default hairline */
   --line-strong:        #B4C2CA;   /* emphasised divider, input borders */
   --surface-2:          #E6ECF0;   /* header bars, section headings */
   --surface-sunken:     #DDE5EA;   /* behind cards, table group headers */
@@ -67,7 +76,7 @@
      These four MUST be identical in both apps. The kiosk shows the patient
      what it captured; the console shows the doctor where it came from.     */
 
-  --src-spoken:         #7C8C97;   /* MIC — patient stated, unverified */
+  --src-spoken:         #5D6C76;   /* MIC — patient stated, unverified */
   --src-spoken-soft:    transparent;
   --src-document:       #0B6E63;   /* DOC — extracted from a record, verifiable */
   --src-document-soft:  #DCEDEA;
@@ -79,7 +88,7 @@
   /* --- Ordinal grading (Dashavidha: pravara / madhyama / avara) ----------- */
 
   --grade-high:         #2C6E36;
-  --grade-mid:          #A2670A;
+  --grade-mid:          #986109;
   --grade-low:          #AF2A20;
   --grade-empty:        #C6D2D9;   /* unfilled pip */
 
@@ -134,7 +143,7 @@
 
     --text:               #E5ECF0;
     --text-2:             #A0B0BA;
-    --text-3:             #74858F;
+    --text-3:             #7E8E97;
 
     --success:            #79B981;
     --success-soft:       #16281A;
@@ -152,13 +161,13 @@
     --info-soft:          #12293A;
     --info-ink:           #9BC9E6;
 
-    --line:               #26323A;
+    --line:               #2E3D46;
     --line-strong:        #3A4A54;
     --surface-2:          #1C262C;
     --surface-sunken:     #0A1014;
     --row-hover:          #1E2930;
 
-    --src-spoken:         #74858F;
+    --src-spoken:         #7E8E97;
     --src-spoken-soft:    transparent;
     --src-document:       #46B3A4;
     --src-document-soft:  #0E322D;
@@ -178,13 +187,13 @@
   --primary:#46B3A4; --primary-hover:#5FC4B6; --primary-soft:#0E322D; --primary-ink:#8FDCD0;
   --secondary:#6BA6DF; --secondary-soft:#12293F; --secondary-ink:#A9CDEE;
   --bg:#0C1216; --card:#151D22;
-  --text:#E5ECF0; --text-2:#A0B0BA; --text-3:#74858F;
+  --text:#E5ECF0; --text-2:#A0B0BA; --text-3:#7E8E97;
   --success:#79B981; --success-soft:#16281A; --success-ink:#A8D5AE;
   --warning:#D9A54F; --warning-soft:#2C2211; --warning-ink:#EDC689;
   --emergency:#E8877D; --emergency-soft:#33150F; --emergency-ink:#F3B0A8;
   --info:#63A8D6; --info-soft:#12293A; --info-ink:#9BC9E6;
-  --line:#26323A; --line-strong:#3A4A54; --surface-2:#1C262C; --surface-sunken:#0A1014; --row-hover:#1E2930;
-  --src-spoken:#74858F; --src-spoken-soft:transparent;
+  --line:#2E3D46; --line-strong:#3A4A54; --surface-2:#1C262C; --surface-sunken:#0A1014; --row-hover:#1E2930;
+  --src-spoken:#7E8E97; --src-spoken-soft:transparent;
   --src-document:#46B3A4; --src-document-soft:#0E322D;
   --src-history:#A0B0BA; --src-history-soft:#1C262C;
   --src-clinician:#79B981; --src-clinician-soft:#16281A;

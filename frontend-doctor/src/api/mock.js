@@ -153,8 +153,8 @@ export const SNAPSHOTS = {
       past_medical_surgical: {
         label: "Past medical and surgical",
         items: [
-          { fact_id: "fct_0201", value: "Diabetes mellitus type 2", normalized: { system: "NAMASTE", display: "Madhumeha", code: "TODO", icd11_bio: "5A11" }, source: src("document", "doc_0091", { field: "diagnosis", page: 1 }), status: "ai_extracted" },
-          { fact_id: "fct_0202", value: "Hypertension", normalized: { system: "NAMASTE", display: "Raktagata Vata", code: "TODO", icd11_bio: "BA00" }, source: src("document", "doc_0091", { field: "diagnosis", page: 1 }), status: "ai_extracted" },
+          { fact_id: "fct_0201", value: "Diabetes mellitus type 2", normalized: { system: "NAMASTE", code: "EF-2.4.4", display: "madhumehaḥ", devanagari: "मधुमेहः", icd11_tm2: "SP60", icd11_bio: "5A11" }, source: src("document", "doc_0091", { field: "diagnosis", page: 1 }), status: "ai_extracted" },
+          { fact_id: "fct_0202", value: "Hypertension", normalized: { system: "ICD-11", code: null, display: null, icd11_tm2: null, icd11_bio: "BA00", note: "no verified NAMASTE-TM2 mapping for essential hypertension — see shared/terminology.json" }, source: src("document", "doc_0091", { field: "diagnosis", page: 1 }), status: "ai_extracted" },
           { fact_id: "fct_0203", value: "Community-acquired pneumonia, Mar 2026", normalized: null, source: src("document", "doc_0091", { field: "diagnosis", page: 1 }), status: "ai_extracted" },
         ],
       },
