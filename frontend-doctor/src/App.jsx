@@ -121,7 +121,10 @@ export default function App() {
               setView("clinic");
             }}
             onOpenPatients={() => setView("patients")}
-            onOpenSettings={() => setView("settings")}
+            onOpenEncounter={(id) => {
+              setEncounterId(id);
+              setView("clinic");
+            }}
           />
         ) : null}
 
