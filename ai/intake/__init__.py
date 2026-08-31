@@ -22,3 +22,6 @@ __all__ = [
     "ClinicalExtractionProvider",
     "ExtractionResult",
 ]
+
+from ai.intake.gemini_provider import GeminiClinicalExtractionProvider
+__all__.append('GeminiClinicalExtractionProvider')
