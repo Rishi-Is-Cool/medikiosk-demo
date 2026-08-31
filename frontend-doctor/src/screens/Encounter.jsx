@@ -1,0 +1,255 @@
+/* The encounter screen. One route, four zones:
+     Zone 0  alert bar        — only present when a rule fires
+     Zone 1  the ten-second read — never scrolls
+     Zone 2  the scan         — HPI, Dashavidha, trend
+     Zone 3  evidence panel   — documents, prior encounters, Q&A answers
+
+   The doctor's eyes are here for about ten seconds before they must look at
+   the patient. Everything that does not earn a slot in Zone 1 is one click
+   away, not one navigation away. */
+
+import { useEffect, useState } from "react";
+import { fetchSnapshot, fetchDocument, askQuestion, saveLedger } from "../api/client.js";
+import AlertBar from "../components/AlertBar.jsx";
+import SourceChip from "../components/SourceChip.jsx";
+import TrendTable from "../components/TrendTable.jsx";
+import DashavidhaPanel from "../components/DashavidhaPanel.jsx";
+import EvidencePanel from "../components/EvidencePanel.jsx";
+import LedgerModal from "../components/LedgerModal.jsx";
+
+export default function Encounter({ encounterId, showAyush, onBack }) {
+  const [snap, setSnap] = useState(null);
+  const [error, setError] = useState("");
+  const [view, setView] = useState(null);
+  const [question, setQuestion] = useState("");
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [finalised, setFinalised] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setSnap(null);
+    setView(null);
+    setFinalised(false);
+    fetchSnapshot(encounterId, { viewerShowsAyush: showAyush })
+      .then((d) => alive && setSnap(d))
+      .catch((e) => alive && setError(e.message));
+    return () => {
+      alive = false;
+    };
+  }, [encounterId, showAyush]);
+
+  async function openSource(source) {
+    if (source.type === "document") {
+      setView({ kind: "loading", title: "Evidence" });
+      const doc = await fetchDocument(source.id);
+      setView(
+        doc
+          ? { kind: "document", title: doc.title, doc, field: source.locator?.field }
+          : { kind: "unavailable", title: "Evidence" }
+      );
+      return;
+    }
+    if (source.type === "prior_encounter" && snap?.last_visit) {
+      setView({
+        kind: "encounter",
+        title: "Previous encounter",
+        date: fmtDate(snap.last_visit.date),
+        summary: snap.last_visit.summary,
+      });
+      return;
+    }
+    setView({ kind: "unavailable", title: "Evidence" });
+  }
+
+  async function ask(e) {
+    e.preventDefault();
+    const q = question.trim();
+    if (!q) return;
+    setView({ kind: "loading", title: "Answer" });
+    const res = await askQuestion(encounterId, q);
+    setView({ kind: "answer", title: "Answer", ...res });
+    setQuestion("");
+  }
+
+  async function commitLedger(entry) {
+    setSaving(true);
+    await saveLedger(encounterId, entry);
+    setSaving(false);
+    setLedgerOpen(false);
+    setFinalised(true);
+  }
+
+  if (error) return <p className="screen-msg">Could not load the snapshot — {error}</p>;
+  if (!snap) return <p className="screen-msg">Loading snapshot…</p>;
+
+  const s = snap.sections;
+  const suppressed = snap.ayush_status === "suppressed_by_viewer";
+
+  return (
+    <div className="encounter">
+      {/* identity — never leaves the screen */}
+      <header className="idstrip">
+        <button type="button" className="btn btn-quiet" onClick={onBack}>
+          ← Queue
+        </button>
+        <h1 className="pname">{snap.patient.name}</h1>
+        <span className="pmeta mk-num">
+          {snap.patient.age_years} y · {snap.patient.sex === "female" ? "F" : "M"} · ABHA{" "}
+          {snap.patient.abha_id}
+        </span>
+        {snap.ayush ? (
+          <>
+            <span className="badge ayu">Prakriti · {snap.ayush.prakriti.value}</span>
+            <span className="badge">Vaya · {snap.ayush.vaya.value}</span>
+          </>
+        ) : null}
+        <span className="spacer" />
+        <span className={`badge ${finalised ? "confirmed" : "draft"}`}>
+          {finalised ? "CONFIRMED" : "DRAFT — NOT CONFIRMED"}
+        </span>
+      </header>
+
+      <AlertBar alerts={snap.alerts} onOpenSource={openSource} />
+
+      <div className="split">
+        <div className="left">
+          {/* Zone 1 — the ten-second read. Does not scroll. */}
+          <section className="band zone1">
+            <h2 className="bandhead">{s.chief_complaint.label}</h2>
+            <p className="cc">
+              {s.chief_complaint.text.value}
+              <span className="cc-dur"> · {s.chief_complaint.text.duration}</span>
+              <SourceChip source={s.chief_complaint.text.source} onOpen={openSource} />
+            </p>
+            {snap.ayush ? <p className="ccsub">Vikriti — {snap.ayush.vikriti.value}</p> : null}
+
+            <div className="cols">
+              <Col title="Active conditions">
+                {s.past_medical_surgical.items.map((it) => (
+                  <Item key={it.fact_id} value={it.value} sub={it.normalized?.display} source={it.source} onOpen={openSource} />
+                ))}
+              </Col>
+              <Col title="Current medications">
+                {s.drug_and_allergy.medications.map((m) => (
+                  <Item key={m.fact_id} value={m.value} source={m.source} onOpen={openSource} />
+                ))}
+              </Col>
+              <Col title="Allergies" tone="alert">
+                {s.drug_and_allergy.allergies.map((a, i) => (
+                  <Item
+                    key={a.fact_id ?? `a-${i}`}
+                    value={a.value}
+                    sub={a.reaction}
+                    source={a.source}
+                    onOpen={openSource}
+                    muted={!a.fact_id}
+                  />
+                ))}
+              </Col>
+            </div>
+          </section>
+
+          {/* Zone 2 — the scan */}
+          <section className="band">
+            <h2 className="bandhead">
+              {s.hpi.label} · {s.hpi.framework}
+            </h2>
+            <dl className="socr">
+              {s.hpi.items.map((it) => (
+                <div className="sc" key={it.key}>
+                  <dt>{it.label}</dt>
+                  <dd>{it.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <DashavidhaPanel ayush={snap.ayush} onOpenSource={openSource} />
+
+          <section className="band">
+            <h2 className="bandhead">{snap.trend.label}</h2>
+            <TrendTable trend={snap.trend} onOpenSource={openSource} />
+          </section>
+
+          <section className="band last">
+            <h2 className="bandhead">On file — not shown</h2>
+            <div className="badges">
+              <span className="badge">Family history · {s.family_history.count} entries</span>
+              <span className="badge">Personal history · {s.personal_history.count} entries</span>
+              <span className="badge">
+                Review of systems · {s.review_of_systems.systems_reviewed} reviewed,{" "}
+                {s.review_of_systems.positive_count} positive
+              </span>
+              {suppressed ? <span className="badge">Ayurvedic assessment · on file</span> : null}
+            </div>
+          </section>
+        </div>
+
+        <EvidencePanel view={view} onClose={() => setView(null)} />
+      </div>
+
+      <form className="actionbar" onSubmit={ask}>
+        <input
+          className="qin"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask about this patient — “what happened during his last visit?”"
+          aria-label="Ask about this patient"
+        />
+        <button type="button" className="btn" onClick={() => alert("Carry-forward dialog — not built yet")}>
+          Carry forward
+        </button>
+        <button type="button" className="btn" onClick={() => alert("Inline editing — not built yet")}>
+          Edit summary
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => setLedgerOpen(true)}
+          disabled={finalised}
+        >
+          {finalised ? "Finalised" : "Confirm and finalise"}
+        </button>
+      </form>
+
+      {ledgerOpen ? (
+        <LedgerModal
+          patientName={snap.patient.name}
+          saving={saving}
+          onCancel={() => setLedgerOpen(false)}
+          onSave={commitLedger}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function Col({ title, tone, children }) {
+  return (
+    <div className={`col ${tone === "alert" ? "alrt" : ""}`}>
+      <h3 className="colh">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Item({ value, sub, source, onOpen, muted }) {
+  return (
+    <p className={`item ${muted ? "muted" : ""}`}>
+      <span className="txt">
+        {value}
+        {sub ? <span className="sub mk-deva"> {sub}</span> : null}
+      </span>
+      <SourceChip source={source} onOpen={onOpen} />
+    </p>
+  );
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}

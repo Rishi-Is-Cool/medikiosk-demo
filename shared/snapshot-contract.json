@@ -1,0 +1,144 @@
+{
+  "_endpoint": "GET /api/encounters/{encounter_id}/snapshot",
+  "_owner": "Member 4 (AI synthesis) produces · Member 2 (doctor console) consumes · Member 5 serves",
+  "_rule": "No clinical value is ever a bare string. Every one is a Claim object. A bare string is a fact with no provenance, and provenance is the differentiator.",
+
+  "encounter_id": "enc_20260829_0412",
+  "generated_at": "2026-08-29T10:14:22+05:30",
+  "status": "draft",
+  "intake_framework": "ayush",
+
+  "patient": {
+    "patient_id": "pat_00731",
+    "name": "Rahul Verma",
+    "age_years": 42,
+    "sex": "male",
+    "abha_id": "91-2847-5563-0192",
+    "preferred_language": "hi",
+    "department": "Ayurveda OPD"
+  },
+
+  "alerts": [
+    {
+      "alert_id": "alr_01",
+      "severity": "critical",
+      "rule": "allergy_conflict",
+      "headline": "Penicillin allergy on record",
+      "detail": "Documented 14 Mar 2026 discharge summary; patient stated \"no known allergies\" at intake today.",
+      "conflicting_sources": [
+        { "type": "document", "id": "doc_0091", "locator": { "field": "drug_allergy", "page": 1 } },
+        { "type": "patient_spoken", "id": "utt_0034", "locator": { "question_id": "allergy_known" } }
+      ]
+    },
+    {
+      "alert_id": "alr_02",
+      "severity": "warning",
+      "rule": "abnormal_lab_value",
+      "headline": "HbA1c 8.2% — above reference range",
+      "detail": "Reference 4.0-5.6%. Extracted from lab report dated 02 Aug 2026.",
+      "conflicting_sources": []
+    }
+  ],
+
+  "sections": {
+    "chief_complaint": {
+      "label": "Chief complaint",
+      "text": { "value": "Fever with cough", "duration": "3 days", "source": { "type": "patient_spoken", "id": "utt_0002" }, "status": "ai_extracted", "fact_id": null }
+    },
+
+    "hpi": {
+      "label": "History of present illness",
+      "framework": "SOCRATES",
+      "items": [
+        { "key": "site",        "label": "Site",        "value": "Chest, retrosternal", "source": { "type": "patient_spoken", "id": "utt_0007" }, "status": "ai_extracted" },
+        { "key": "onset",       "label": "Onset",       "value": "Gradual, 3 days",     "source": { "type": "patient_spoken", "id": "utt_0008" }, "status": "ai_extracted" },
+        { "key": "character",   "label": "Character",   "value": "Dry, non-productive", "source": { "type": "patient_spoken", "id": "utt_0009" }, "status": "ai_extracted" },
+        { "key": "radiation",   "label": "Radiation",   "value": "None reported",       "source": { "type": "patient_spoken", "id": "utt_0010" }, "status": "ai_extracted" },
+        { "key": "associations","label": "Associations","value": "Fever, myalgia",      "source": { "type": "patient_spoken", "id": "utt_0011" }, "status": "ai_extracted" },
+        { "key": "timing",      "label": "Timing",      "value": "Worse at night",      "source": { "type": "patient_spoken", "id": "utt_0012" }, "status": "ai_extracted" },
+        { "key": "exacerbating","label": "Exacerbating","value": "Cold exposure",       "source": { "type": "patient_spoken", "id": "utt_0013" }, "status": "ai_extracted" },
+        { "key": "severity",    "label": "Severity",    "value": "6/10",                "source": { "type": "patient_spoken", "id": "utt_0014" }, "status": "ai_extracted" }
+      ]
+    },
+
+    "past_medical_surgical": {
+      "label": "Past medical and surgical",
+      "items": [
+        { "fact_id": "fct_0201", "value": "Diabetes mellitus type 2", "normalized": { "system": "NAMASTE", "code": "AAE-16", "display": "Madhumeha", "icd11_tm2": "SP52", "icd11_bio": "5A11" }, "source": { "type": "document", "id": "doc_0091", "locator": { "field": "diagnosis", "page": 1 } }, "status": "ai_extracted" },
+        { "fact_id": "fct_0202", "value": "Hypertension", "normalized": { "system": "NAMASTE", "code": "AAE-09", "display": "Raktagata Vata", "icd11_tm2": "SP70", "icd11_bio": "BA00" }, "source": { "type": "document", "id": "doc_0091", "locator": { "field": "diagnosis", "page": 1 } }, "status": "ai_extracted" },
+        { "fact_id": "fct_0203", "value": "Community-acquired pneumonia, Mar 2026", "normalized": null, "source": { "type": "document", "id": "doc_0091", "locator": { "field": "diagnosis", "page": 1 } }, "status": "ai_extracted" }
+      ]
+    },
+
+    "drug_and_allergy": {
+      "label": "Drug and allergy",
+      "medications": [
+        { "fact_id": "fct_0301", "value": "Metformin 500mg PO BD", "generic": "Metformin", "dose": "500mg", "route": "PO", "frequency": "BD", "source": { "type": "document", "id": "doc_0091", "locator": { "field": "discharge_meds", "page": 1 } }, "status": "ai_extracted" },
+        { "fact_id": "fct_0302", "value": "Amlodipine 5mg PO OD", "generic": "Amlodipine", "dose": "5mg", "route": "PO", "frequency": "OD", "source": { "type": "prior_encounter", "id": "enc_20260314_0088" }, "status": "ai_extracted" }
+      ],
+      "allergies": [
+        { "fact_id": "fct_0401", "value": "Penicillin", "reaction": "Urticarial rash", "source": { "type": "document", "id": "doc_0091", "locator": { "field": "drug_allergy", "page": 1 } }, "status": "ai_extracted", "alert_ids": ["alr_01"] },
+        { "fact_id": null, "value": "Patient reported no known allergies", "reaction": null, "source": { "type": "patient_spoken", "id": "utt_0034" }, "status": "ai_extracted", "alert_ids": ["alr_01"] }
+      ]
+    },
+
+    "family_history":   { "label": "Family history",   "collapsed_by_default": true, "count": 2,  "items": [] },
+    "personal_history": { "label": "Personal history", "collapsed_by_default": true, "count": 5,  "items": [] },
+
+    "review_of_systems": {
+      "label": "Review of systems",
+      "collapsed_by_default": true,
+      "systems_reviewed": 14,
+      "positive_count": 2,
+      "items": []
+    },
+
+    "prior_investigations": {
+      "label": "Prior investigations",
+      "items": [
+        { "fact_id": "fct_0501", "test": "HbA1c",           "value": 8.2,  "unit": "%",     "ref_low": 4.0,  "ref_high": 5.6,   "flag": "high",   "dated": "2026-08-02", "source": { "type": "document", "id": "doc_0092", "locator": { "field": "hba1c", "page": 1 } }, "status": "ai_extracted", "alert_ids": ["alr_02"] },
+        { "fact_id": "fct_0502", "test": "Fasting glucose", "value": 164,  "unit": "mg/dL", "ref_low": 70,   "ref_high": 100,   "flag": "high",   "dated": "2026-08-02", "source": { "type": "document", "id": "doc_0092", "locator": { "field": "fbs", "page": 1 } }, "status": "ai_extracted", "alert_ids": [] },
+        { "fact_id": "fct_0503", "test": "Haemoglobin",     "value": 13.4, "unit": "g/dL",  "ref_low": 13.0, "ref_high": 17.0,  "flag": "normal", "dated": "2026-08-02", "source": { "type": "document", "id": "doc_0092", "locator": { "field": "hb", "page": 1 } }, "status": "ai_extracted", "alert_ids": [] }
+      ]
+    }
+  },
+
+  "ayush": {
+    "_null_when": "intake_framework is not 'ayush'. The console renders the panel if and only if this block is non-null.",
+    "captured": true,
+    "prakriti": { "value": "Pitta-Kapha", "components": { "vata": 20, "pitta": 45, "kapha": 35 }, "source": { "type": "patient_spoken", "id": "utt_0040" }, "status": "ai_extracted" },
+    "vikriti":  { "value": "Pitta-Kapha vriddhi, Amavastha", "source": { "type": "patient_spoken", "id": "utt_0041" }, "status": "ai_extracted" },
+    "vaya":     { "value": "Madhya", "age_years": 42, "source": { "type": "patient_spoken", "id": "utt_0001" }, "status": "ai_extracted" },
+    "pramana":  { "value": "Height 172cm, Weight 78kg, BMI 26.4", "source": { "type": "patient_spoken", "id": "utt_0042" }, "status": "ai_extracted" },
+    "graded": [
+      { "key": "sara",           "label": "Sara",           "grade": "madhyama", "source": { "type": "patient_spoken", "id": "utt_0043" }, "status": "ai_extracted" },
+      { "key": "samhanana",      "label": "Samhanana",      "grade": "madhyama", "source": { "type": "patient_spoken", "id": "utt_0044" }, "status": "ai_extracted" },
+      { "key": "satmya",         "label": "Satmya",         "grade": "pravara",  "source": { "type": "patient_spoken", "id": "utt_0045" }, "status": "ai_extracted" },
+      { "key": "sattva",         "label": "Sattva",         "grade": "madhyama", "source": { "type": "patient_spoken", "id": "utt_0046" }, "status": "ai_extracted" },
+      { "key": "ahara_shakti",   "label": "Ahara shakti",   "grade": "avara",    "source": { "type": "patient_spoken", "id": "utt_0047" }, "status": "ai_extracted" },
+      { "key": "vyayama_shakti", "label": "Vyayama shakti", "grade": "avara",    "source": { "type": "patient_spoken", "id": "utt_0048" }, "status": "ai_extracted" }
+    ]
+  },
+
+  "last_visit": {
+    "encounter_id": "enc_20260314_0088",
+    "date": "2026-03-14",
+    "summary": "Discharged after community-acquired pneumonia. Metformin and amlodipine continued. Review advised in 4 weeks.",
+    "source": { "type": "prior_encounter", "id": "enc_20260314_0088" }
+  },
+
+  "documents": [
+    { "document_id": "doc_0091", "doc_type": "discharge_summary", "dated": "2026-03-14", "file_path": "/media/pat_00731/14-mar-2026-discharge.jpg", "page_count": 1 },
+    { "document_id": "doc_0092", "doc_type": "lab_report",        "dated": "2026-08-02", "file_path": "/media/pat_00731/02-aug-2026-labs.jpg",     "page_count": 1 }
+  ],
+
+  "_enums": {
+    "status":            ["ai_extracted", "doctor_edited", "doctor_confirmed"],
+    "source.type":       ["patient_spoken", "document", "prior_encounter", "clinician"],
+    "alert.severity":    ["critical", "warning", "info"],
+    "alert.rule":        ["red_flag_combination", "allergy_conflict", "drug_interaction", "data_inconsistency", "abnormal_lab_value"],
+    "intake_framework":  ["allopathic", "ayush"],
+    "ayush.graded.grade":["pravara", "madhyama", "avara"],
+    "lab.flag":          ["low", "normal", "high"]
+  }
+}
