@@ -101,8 +101,16 @@ export function useSpeech() {
 
   // Leaving a screen or changing language must silence speech. Otherwise a question keeps
   // being read aloud over the next one or in the old language.
+  //
+  // Both halves matter, and they are not the same event. Calling stop() on a
+  // language change silences a question mid-sentence in the old language;
+  // returning it as cleanup silences one that is still playing when the screen
+  // unmounts. Without the cleanup, a "Listen" press on a screen that does not
+  // auto-read — consent, completion — keeps talking over whatever comes next,
+  // because VoicePlayer only registers its own cleanup when autoPlayKey is set.
   useEffect(() => {
     stop();
+    return stop;
   }, [language, stop]);
 
   const speakQuestion = useCallback(
