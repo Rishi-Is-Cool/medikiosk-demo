@@ -79,7 +79,8 @@ export function MobileUploadScreen({ token }: { token: string }) {
       setProblem(t("upload.tooLarge"));
       return;
     }
-    if (selected.type && !selected.type.startsWith("image/") && selected.type !== "application/pdf") {
+    const mime = selected.type ? selected.type.toLowerCase() : "";
+    if (mime && !mime.startsWith("image/") && mime !== "application/pdf") {
       setProblem(t("upload.wrongType"));
       return;
     }

@@ -27,51 +27,61 @@ const POLL_INTERVAL_MS = 2000;
 export function DocumentUploadScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { patient, dispatch } = usePatientSession();
+  const { patient, documentSession, dispatch } = usePatientSession();
   const ready = useJourneyGuard("complaint");
 
-  const [session, setSession] = useState<UploadSession | null>(null);
   const [failed, setFailed] = useState(false);
   const creatingRef = useRef(false);
 
-  const createSession = useCallback(async () => {
-    if (!patient || creatingRef.current) return;
-    creatingRef.current = true;
-    setFailed(false);
+  const createSession = useCallback(
+    async (forceNew = false) => {
+      if (!patient || creatingRef.current) return;
+      creatingRef.current = true;
+      setFailed(false);
 
-    try {
-      const created = await documentApi.createUploadSession(patient.session_id);
-      setSession(created);
-      dispatch({ type: "setDocumentSession", session: created });
-    } catch (error) {
-      console.warn("[documents] could not create upload session", error);
-      setFailed(true);
-    } finally {
-      creatingRef.current = false;
-    }
-  }, [patient, dispatch]);
+      try {
+        const created = await documentApi.createUploadSession(patient.session_id, forceNew);
+        dispatch({ type: "setDocumentSession", session: created });
+      } catch (error) {
+        console.warn("[documents] could not create upload session", error);
+        setFailed(true);
+      } finally {
+        creatingRef.current = false;
+      }
+    },
+    [patient, dispatch],
+  );
 
   useEffect(() => {
-    if (ready && !session) void createSession();
-  }, [ready, session, createSession]);
+    if (ready && !documentSession) void createSession(false);
+  }, [ready, documentSession, createSession]);
+
+  const session = documentSession;
+  const sessionToken = session?.token;
+  const sessionExpired = session?.status === "expired";
 
   // Poll for the phone. A websocket would be tidier; polling is honest about
   // the fact that the real document service's push story is not agreed yet.
   useEffect(() => {
-    if (!session || session.status === "expired") return;
+    if (!sessionToken || sessionExpired) return;
 
+    let mounted = true;
     const timer = setInterval(async () => {
       try {
-        const latest = await documentApi.getUploadSession(session.token);
-        setSession(latest);
-        dispatch({ type: "setDocumentSession", session: latest });
+        const latest = await documentApi.getUploadSession(sessionToken);
+        if (mounted) {
+          dispatch({ type: "setDocumentSession", session: latest });
+        }
       } catch (error) {
         console.warn("[documents] status poll failed", error);
       }
     }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(timer);
-  }, [session, dispatch]);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, [sessionToken, sessionExpired, dispatch]);
 
   if (!ready) return null;
 
@@ -137,7 +147,7 @@ export function DocumentUploadScreen() {
             title={t("error.title")}
             message={t("error.offline")}
             actions={
-              <button type="button" className="mk-btn mk-btn--secondary" onClick={createSession}>
+              <button type="button" className="mk-btn mk-btn--secondary" onClick={() => void createSession(false)}>
                 <Icon name="refresh" />
                 {t("common.retry")}
               </button>
@@ -156,10 +166,7 @@ export function DocumentUploadScreen() {
                   <button
                     type="button"
                     className="mk-btn mk-btn--primary"
-                    onClick={() => {
-                      setSession(null);
-                      void createSession();
-                    }}
+                    onClick={() => void createSession(true)}
                   >
                     <Icon name="refresh" />
                     {t("documents.newCode")}

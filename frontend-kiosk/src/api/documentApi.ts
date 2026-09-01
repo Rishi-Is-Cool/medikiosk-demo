@@ -16,11 +16,11 @@ export function uploadUrlFor(token: string): string {
 }
 
 export const documentApi = {
-  async createUploadSession(sessionId: string): Promise<UploadSession> {
+  async createUploadSession(sessionId: string, forceNew = false): Promise<UploadSession> {
     if (USE_MOCKS) {
       const session = await request<UploadSession>(MOCK_DOCUMENT_API, {
         method: "POST",
-        body: JSON.stringify({ session_id: sessionId }),
+        body: JSON.stringify({ session_id: sessionId, force_new: forceNew }),
       });
       return { ...session, upload_url: uploadUrlFor(session.token) };
     }

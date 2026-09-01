@@ -10,7 +10,15 @@ import { uploadSessions } from "@/mocks/uploadSessionStore";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 12 * 1024 * 1024;
-const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
+const ALLOWED = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+];
 
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -26,9 +34,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "too_large" }, { status: 413 });
   }
 
+  const mime = file.type?.toLowerCase() || "";
   // HEIC from iPhones sometimes arrives with an empty type; accept it rather
   // than blocking a patient over a MIME-sniffing quirk.
-  if (file.type && !ALLOWED.includes(file.type)) {
+  if (mime && !ALLOWED.includes(mime)) {
     return NextResponse.json({ error: "unsupported_type" }, { status: 415 });
   }
 

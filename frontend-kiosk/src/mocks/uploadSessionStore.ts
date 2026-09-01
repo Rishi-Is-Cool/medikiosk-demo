@@ -88,8 +88,22 @@ function sweep(): void {
 }
 
 export const uploadSessions = {
-  create(kioskSessionId: string): UploadSession {
+  create(kioskSessionId: string, forceNew = false): UploadSession {
     sweep();
+    if (!forceNew) {
+      for (const existing of store.values()) {
+        if (existing.kiosk_session_id === kioskSessionId && !expired(existing)) {
+          return toPublic(existing);
+        }
+      }
+    } else {
+      for (const [key, existing] of store) {
+        if (existing.kiosk_session_id === kioskSessionId) {
+          store.delete(key);
+        }
+      }
+    }
+
     const session: StoredSession = {
       token: token(),
       kiosk_session_id: kioskSessionId,

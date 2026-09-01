@@ -11,6 +11,73 @@ import { useLanguage } from "@/i18n/LanguageProvider";
    backend has one, and the browser's own synthesis while it does not. No
    screen needs to know which. */
 
+function getAvailableVoices(): Promise<SpeechSynthesisVoice[]> {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return Promise.resolve([]);
+  const immediate = window.speechSynthesis.getVoices();
+  if (immediate.length > 0) return Promise.resolve(immediate);
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    const onVoicesChanged = () => {
+      if (!resolved) {
+        resolved = true;
+        window.speechSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
+        resolve(window.speechSynthesis.getVoices());
+      }
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", onVoicesChanged);
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        window.speechSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
+        resolve(window.speechSynthesis.getVoices());
+      }
+    }, 300);
+  });
+}
+
+function findVoice(
+  voices: SpeechSynthesisVoice[],
+  language: string,
+  locale: string,
+): { voice: SpeechSynthesisVoice | undefined; lang: string } {
+  const normLoc = locale.toLowerCase().replace("_", "-");
+  const normLang = language.toLowerCase();
+
+  // 1. Exact locale match (e.g. mr-IN, mr_IN, hi-IN, en-IN)
+  let match = voices.find((v) => v.lang.toLowerCase().replace("_", "-") === normLoc);
+  if (match) return { voice: match, lang: match.lang || locale };
+
+  // 2. Language prefix match (e.g. mr, hi, en)
+  match = voices.find((v) => v.lang.toLowerCase().replace("_", "-").startsWith(normLang));
+  if (match) return { voice: match, lang: match.lang || locale };
+
+  // 3. Name match for regional language
+  if (normLang === "mr") {
+    match = voices.find((v) => {
+      const name = v.name.toLowerCase();
+      return name.includes("marathi") || name.includes("मराठी");
+    });
+    if (match) return { voice: match, lang: match.lang || locale };
+  }
+
+  // 4. Graceful script-level fallback:
+  // If the patient chose Marathi (Devanagari script) and the device/browser provides no native
+  // Marathi voice, fall back to an available Indian Devanagari voice (e.g. Hindi hi-IN) to produce
+  // audible speech rather than failing silently.
+  if (normLang === "mr") {
+    const devanagariVoice = voices.find((v) => {
+      const l = v.lang.toLowerCase().replace("_", "-");
+      return l === "hi-in" || l.startsWith("hi") || v.name.toLowerCase().includes("hindi");
+    });
+    if (devanagariVoice) {
+      return { voice: devanagariVoice, lang: devanagariVoice.lang || "hi-IN" };
+    }
+  }
+
+  return { voice: undefined, lang: locale };
+}
+
 export function useSpeech() {
   const { language, locale } = useLanguage();
   const [speaking, setSpeaking] = useState(false);
@@ -32,9 +99,11 @@ export function useSpeech() {
     setSpeaking(false);
   }, []);
 
-  // Leaving a screen must silence it. Otherwise a question keeps being read
-  // aloud over the next one.
-  useEffect(() => stop, [stop]);
+  // Leaving a screen or changing language must silence speech. Otherwise a question keeps
+  // being read aloud over the next one or in the old language.
+  useEffect(() => {
+    stop();
+  }, [language, stop]);
 
   const speakQuestion = useCallback(
     async (text: string) => {
@@ -67,15 +136,20 @@ export function useSpeech() {
         return;
       }
 
+      const voices = await getAvailableVoices();
+      if (requestId !== requestRef.current) return;
+
+      const { voice, lang } = findVoice(voices, language, locale);
+
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = locale;
+      utterance.lang = lang;
       utterance.rate = 0.92; // Slightly slow. The audience is elderly and unwell.
       utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
+      utterance.onerror = (event) => {
+        console.warn("[speech] synthesis error", event.error);
+        setSpeaking(false);
+      };
 
-      const voice = window.speechSynthesis
-        .getVoices()
-        .find((v) => v.lang === locale || v.lang.startsWith(language));
       if (voice) utterance.voice = voice;
 
       window.speechSynthesis.speak(utterance);
