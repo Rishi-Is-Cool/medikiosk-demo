@@ -301,6 +301,32 @@
   padding-top: 0;
 }
 
+/* --- Section bar ---------------------------------------------------------
+   Sits above the progress bar on long interviews. The part name does the
+   orienting; the question count is the fine detail underneath it.          */
+
+.mk-sectionbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.mk-sectionbar__label {
+  font-size: var(--fs-base);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+/* --- Scanned-value confirmation ------------------------------------------ */
+
+.mk-scanned {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--success-ink);
+}
+
 /* --- Microphone ----------------------------------------------------------- */
 
 .mk-recorder {

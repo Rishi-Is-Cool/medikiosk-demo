@@ -2,10 +2,12 @@
 
 import { ENDPOINTS, MOCK_LATENCY, USE_MOCKS, mockDelay } from "./config";
 import { request } from "./http";
-import { mockRegister } from "@/mocks/patients";
+import { mockRegister, mockScanIdentity } from "@/mocks/patients";
 import type {
   ConsentReceipt,
   ConsentSubmission,
+  IdentityMethod,
+  IdentityScanResult,
   PatientSessionInfo,
   RegistrationRequest,
 } from "./types";
@@ -21,6 +23,32 @@ export const patientApi = {
     return request<PatientSessionInfo>(ENDPOINTS.patient.register, {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Photograph of an ABHA card or Aadhaar in, identifier out.
+   *
+   * The problem statement's patient journey says the patient "enters/scans"
+   * their ID, so scanning has to be offered — but reading the card is OCR,
+   * which belongs to the document/AI layer, not to React. The kiosk uploads
+   * the image and fills in whatever comes back, and the patient can correct
+   * it. Nothing here verifies an identity against anything (build spec §19).
+   */
+  async scanIdentity(method: IdentityMethod, image: File): Promise<IdentityScanResult> {
+    if (USE_MOCKS) {
+      await mockDelay(MOCK_LATENCY.slow);
+      return mockScanIdentity(method);
+    }
+
+    const form = new FormData();
+    form.append("image", image, image.name);
+    form.append("identity_method", method);
+
+    return request<IdentityScanResult>(ENDPOINTS.patient.scanIdentity, {
+      method: "POST",
+      body: form,
+      timeoutMs: 30000,
     });
   },
 

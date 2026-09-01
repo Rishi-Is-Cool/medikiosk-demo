@@ -24,6 +24,21 @@ export interface PatientSessionInfo {
   sex?: string;
 }
 
+/**
+ * What came back from photographing an ABHA card or Aadhaar.
+ *
+ * Reading an identity card is OCR — the same class of work the document
+ * service already owns, and emphatically not something the kiosk attempts.
+ * The frontend photographs, uploads, and fills in whatever identifier it is
+ * handed back; the patient can always correct it or type instead.
+ */
+export interface IdentityScanResult {
+  identity_method: IdentityMethod;
+  /** The number as read. Never presented as verified — nothing is verified. */
+  identifier: string;
+  confidence: number;
+}
+
 export interface RegistrationRequest {
   identity_method: IdentityMethod;
   /** ABHA address / Aadhaar last digits / typed name, per method. */
@@ -74,6 +89,19 @@ export interface ChiefComplaintOption {
   icon: string;
 }
 
+/**
+ * Result of mapping a spoken complaint onto the known complaint list.
+ *
+ * The complaint taxonomy belongs to the question service — it is the same
+ * component that decides which line of questioning a complaint opens. The
+ * kiosk sends words and renders the answer. When nothing matches, the spoken
+ * text is carried through as a free-text complaint rather than discarded.
+ */
+export interface ComplaintMatch {
+  complaint: ChiefComplaintOption | null;
+  transcript: string;
+}
+
 /* --- Intake --------------------------------------------------------------- */
 
 export type QuestionInputType =
@@ -82,6 +110,21 @@ export type QuestionInputType =
   | "single_select"
   | "multi_select"
   | "scale";
+
+/**
+ * Which way a scale's meaning runs — the engine must say, because the two
+ * directions are opposites and the UI cannot guess.
+ *
+ * `severity`: last option is the worst (mild → worst pain). Warrants the
+ * warning-to-emergency ramp.
+ *
+ * `grade`: last option is the best. The Dashavidha axes are ordered
+ * avara → madhyama → pravara, least to optimum, matching the doctor console.
+ * These get a neutral ramp: running severity colours over them would paint
+ * "strong and glossy hair" red, and would also tell a patient their own
+ * constitution is an alarm state, which it is not.
+ */
+export type ScaleTone = "severity" | "grade";
 
 export interface QuestionOption {
   value: string;
@@ -97,6 +140,23 @@ export interface QuestionProgress {
   estimated_total: number;
 }
 
+/**
+ * Where this question sits in the interview.
+ *
+ * A General Medicine intake is short enough that a single "question 3 of 8"
+ * carries it. A Dashavidha Pariksha interview is not — it runs to thirty-odd
+ * questions across several unrelated topics, and a patient watching a bar
+ * crawl from 3/30 to 4/30 has no idea whether they are nearly done or barely
+ * started. Naming the part they are in is what makes the length bearable.
+ */
+export interface QuestionSection {
+  id: string;
+  /** Localised by the question service, like the question text itself. */
+  label: string;
+  index: number;
+  total: number;
+}
+
 export interface IntakeQuestion {
   question_id: string;
   text: string;
@@ -106,6 +166,10 @@ export interface IntakeQuestion {
   allow_voice: boolean;
   allow_text: boolean;
   progress: QuestionProgress;
+  /** Absent for short interviews that do not need sectioning. */
+  section?: QuestionSection;
+  /** Only meaningful when input_type is "scale". Defaults to severity. */
+  scale_tone?: ScaleTone;
 }
 
 /** Build spec §10. The kiosk consumes this; it never computes it. */

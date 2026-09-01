@@ -1,6 +1,7 @@
 import type { LanguageCode } from "@/api/types";
 import { en, type DictionaryKey, type PartialDictionary } from "./dictionaries/en";
 import { hi } from "./dictionaries/hi";
+import { mr } from "./dictionaries/mr";
 
 /** Dictionaries that actually exist. A language absent here falls back to
  *  English — and is disabled on the language screen, so no patient reaches
@@ -8,6 +9,7 @@ import { hi } from "./dictionaries/hi";
 const DICTIONARIES: Partial<Record<LanguageCode, PartialDictionary>> = {
   en,
   hi,
+  mr,
 };
 
 export type Translator = (key: DictionaryKey, vars?: Record<string, string | number>) => string;

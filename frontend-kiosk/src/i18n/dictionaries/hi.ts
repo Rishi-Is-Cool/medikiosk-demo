@@ -62,6 +62,13 @@ export const hi: PartialDictionary = {
     "यह केवल डेमो है — पहचान किसी सरकारी डेटाबेस से नहीं जाँची जाती।",
   "register.welcomeBack": "नमस्ते",
   "register.required": "कृपया यह भरें",
+  "register.scan": "मेरा कार्ड स्कैन करें",
+  "register.scanHelp": "कार्ड को सीधा रखें और साफ़ फ़ोटो लें।",
+  "register.scanning": "आपका कार्ड पढ़ा जा रहा है",
+  "register.scanned": "यह हमने आपके कार्ड से पढ़ा है। कृपया देख लें कि सही है।",
+  "register.scanFailed": "कार्ड पढ़ा नहीं जा सका",
+  "register.scanFailedHelp": "कृपया नंबर टाइप कर दीजिए, या कर्मचारी से मदद लीजिए।",
+  "register.orType": "या नीचे टाइप करें",
 
   "consent.title": "आपकी अनुमति",
   "consent.subtitle":
@@ -93,18 +100,25 @@ export const hi: PartialDictionary = {
   "mode.general": "जनरल मेडिसिन",
   "mode.generalSub": "सामान्य ओपीडी परामर्श",
   "mode.ayush": "आयुर्वेद / आयुष",
-  "mode.ayushSub": "इस मशीन पर जल्द आ रहा है",
-  "mode.ayushUnavailable":
-    "आयुष के सवाल अभी इस मशीन पर उपलब्ध नहीं हैं। कृपया आयुष काउंटर पर जाएँ।",
+  "mode.ayushSub": "इसमें शरीर और दिनचर्या की विस्तार से जाँच होती है",
+  "mode.ayushNote":
+    "आयुर्वेद की जाँच में सामान्य परामर्श से ज़्यादा सवाल पूछे जाते हैं, और कुछ मिनट अधिक लगते हैं।",
 
   "complaint.title": "आज आप किस तकलीफ़ के लिए आए हैं?",
   "complaint.subtitle": "जो तकलीफ़ सबसे ज़्यादा परेशान कर रही है, वह चुनें।",
+  "complaint.speak": "या अपने शब्दों में बताइए",
+  "complaint.heard": "हमने समझा",
+  "complaint.matched": "क्या आपका यही मतलब है?",
+  "complaint.noMatch":
+    "हम इसे सूची की किसी तकलीफ़ से नहीं मिला पाए, पर आपकी बात दर्ज हो गई है। सबसे मिलती-जुलती चुनें, या आगे बढ़ें।",
+  "complaint.continueOwn": "अपने शब्दों के साथ आगे बढ़ें",
   "complaint.other": "कुछ और",
   "complaint.otherSub": "अपने शब्दों में बताएँ",
   "complaint.otherLabel": "आपको क्या तकलीफ़ है?",
   "complaint.otherPlaceholder": "जैसे: एक महीने से घुटने में दर्द",
 
   "intake.progress": "सवाल {current}, लगभग {total} में से",
+  "intake.section": "भाग {index}, {total} में से",
   "intake.selectOne": "एक चुनें",
   "intake.selectMany": "जो-जो लागू हो, सब चुनें",
   "intake.speakOr": "बोलकर जवाब दें",
@@ -192,6 +206,11 @@ export const hi: PartialDictionary = {
   "complete.finish": "समाप्त",
   "complete.clearing": "आपकी जानकारी इस स्क्रीन से हटाई जा रही है",
   "complete.autoClear": "यह स्क्रीन अपने आप साफ़ हो जाएगी",
+
+  "idle.title": "क्या आप वहीं हैं?",
+  "idle.body": "अगर कोई जवाब नहीं मिलता, तो यह स्क्रीन साफ़ हो जाएगी ताकि अगला मरीज़ इस्तेमाल कर सके।",
+  "idle.continue": "हाँ, मैं यहीं हूँ",
+  "idle.counting": "{seconds} सेकंड में साफ़ हो जाएगी",
 
   "help.title": "मदद चाहिए?",
   "help.body": "कृपया अपना हाथ उठाएँ। कर्मचारी आपके पास आकर पूरा करने में मदद करेंगे।",

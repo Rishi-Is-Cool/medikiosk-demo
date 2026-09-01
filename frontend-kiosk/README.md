@@ -65,6 +65,50 @@ session so that device can never read it.
 
 `src/screens/` holds the screens; the files under `src/app/` are thin routes.
 
+## Two intake frameworks
+
+`history_mode` is chosen on `/mode` and travels to the question service. The
+kiosk does not know what either framework contains.
+
+- **General Medicine** — SOCRATES for pain, a conventional fever/cough line,
+  then the shared history tail. Around 10 questions.
+- **AYUSH** — the same complaint line, plus Dashavidha Pariksha and
+  Ahara-Vihara, then the same tail. Around 31.
+
+Because the AYUSH interview is three times longer, the engine also sends a
+**section** with each question, and the UI leads with it: "Part 4 of 6 · Your
+strength and digestion". A bar crawling from 16/31 tells a patient nothing;
+the part name tells them where they are.
+
+### What the kiosk does and does not capture for Dashavidha
+
+`shared/snapshot-contract.json` fixes how the doctor console *receives* the
+ten axes — Prakriti as vata/pitta/kapha proportions, six axes as a
+pravara / madhyama / avara grade. **The kiosk does not produce those.** A
+patient cannot self-report "Sara: pravara"; that is a practitioner's
+synthesis. `mocks/ayushQuestions.ts` asks the patient-answerable proxy
+underneath each axis — what their hair and skin are like, how much they can
+eat, whether they tire quickly — and the raw answers go out through
+`intakeApi` like any other answer. Converting them to doshas and grades is
+AI/backend work, the same boundary the kiosk keeps for red-flag priority.
+
+**Ahara-Vihara has no agreed contract anywhere in the project** — not in
+`ai/intake/schemas.py`, not in the shared snapshot, not in the doctor
+console. The questions here capture what the classical assessment covers, but
+the shape they should be delivered in still has to be agreed.
+
+⚠ **The AYUSH question set has not been reviewed by an Ayurveda
+practitioner.** A real Prakriti questionnaire runs to twenty or forty items;
+this is six. Treat it as a demo script until someone qualified has read it.
+
+### Scale direction is part of the contract
+
+A `scale` question carries `scale_tone`, and it matters: `severity` climbs
+toward alarm (mild → worst pain) and gets the warning ramp; `grade` climbs
+toward *optimum* (avara → pravara) and gets a neutral one. Running the
+severity ramp over a grading axis paints "strong and glossy hair" red and
+tells a patient their own constitution is an emergency.
+
 ## Design tokens
 
 `src/styles/tokens.css` is a **verbatim copy** of `About/tokens.css`. Do not
@@ -92,12 +136,21 @@ doctor console.
 - The touch list collapses while a spoken answer is being confirmed, so the
   transcript and its confirm buttons fit on a 768px panel without scrolling.
 - The action bar is sticky. A primary action a patient cannot see is a trap.
-- Only two languages are enabled (English, Hindi). The other four appear
-  disabled rather than silently rendering English — a patient who cannot read
-  English would have no way back. Adding one is a dictionary file in
-  `src/i18n/dictionaries` plus `translated: true` in `src/i18n/languages.ts`.
+- Three languages are enabled (English, Hindi, Marathi) across both the UI and
+  every question. Bengali, Tamil and Telugu appear **disabled** rather than
+  silently rendering English — a patient who cannot read English would have no
+  way back, so a half-translated language is worse than an honest "coming
+  soon". Adding one is a dictionary file in `src/i18n/dictionaries`, the `mr`
+  keys in the two question banks, and `translated: true` in
+  `src/i18n/languages.ts`.
 - Language is changeable from any screen, and the current question is re-fetched
   in the new language rather than left behind.
+- An abandoned session clears itself. After two minutes of silence on any
+  screen the kiosk asks "are you still there?", then resets after twenty
+  seconds. Two screens are exempt: the start screen (nothing to abandon) and
+  the priority screen — that one told the patient to sit still and wait for
+  staff, and timing out on a patient who did as they were asked would erase an
+  urgent hand-off.
 
 ## The QR upload flow
 
@@ -130,6 +183,10 @@ PostgreSQL, and holding images in a Node process would model that wrongly.
 - Fever → "Difficulty breathing" → the staff-assistance priority screen.
 - Fever → "Yes, with phlegm" — watch the estimated total move from 8 to 9. The
   interview branches, so the total is an estimate and the UI treats it as one.
+- Ayurveda → any complaint → a 31-question interview across six named parts.
+- Stop touching the screen for two minutes — the abandonment warning.
+- ABHA or Aadhaar → "Scan my card" — fills the field from a photo, then asks
+  the patient to check it.
 
 ## Known gaps
 
@@ -140,8 +197,16 @@ PostgreSQL, and holding images in a Node process would model that wrongly.
   adaptive interview one question at a time needs a backend contract that does
   not exist yet; the screen asks for confirmation rather than dropping answers
   silently.
-- **AYUSH is a disabled stub**, per the project plan. The question components
-  are framework-agnostic, so a Dashavidha Pariksha set plugs in server-side.
+- **The AYUSH question set is unreviewed** — see above. The Ahara-Vihara
+  section has no agreed output contract at all.
+- **Bengali, Tamil and Telugu are untranslated** and shown disabled.
+- **No screen-reader, keyboard-only, real-touchscreen or cross-browser
+  testing.** Safari/iOS in particular has different `MediaRecorder` codec
+  support that the fallback logic has never actually run against.
+- **No custom favicon** — still the Next.js default.
 - Consent is captured and transmitted, but consent *compliance* (DPDP 2023,
   the ABDM consent framework) lives in the backend's consent artefact and audit
   trail. Nothing here should be described as compliant.
+- `src/styles/tokens.css` duplicates `shared/tokens.css` on the
+  `feat/doctor-console` branch. Identical today; should be reconciled into one
+  shared file before the branches merge.

@@ -59,6 +59,13 @@ export const en = {
     "Demo only — identity is not verified against any national database.",
   "register.welcomeBack": "Welcome",
   "register.required": "Please fill this in",
+  "register.scan": "Scan my card",
+  "register.scanHelp": "Hold the card flat and take a clear photo.",
+  "register.scanning": "Reading your card",
+  "register.scanned": "We read this from your card. Please check it is right.",
+  "register.scanFailed": "We could not read the card",
+  "register.scanFailedHelp": "Please type the number instead, or ask staff for help.",
+  "register.orType": "or type it below",
 
   "consent.title": "Your permission",
   "consent.subtitle":
@@ -91,18 +98,25 @@ export const en = {
   "mode.general": "General Medicine",
   "mode.generalSub": "Regular OPD consultation",
   "mode.ayush": "Ayurveda / AYUSH",
-  "mode.ayushSub": "Coming soon at this kiosk",
-  "mode.ayushUnavailable":
-    "AYUSH intake is not available on this kiosk yet. Please continue at the AYUSH desk.",
+  "mode.ayushSub": "Includes a detailed body and lifestyle assessment",
+  "mode.ayushNote":
+    "The Ayurveda assessment asks more questions than a general consultation, and takes a few minutes longer.",
 
   "complaint.title": "What brings you here today?",
   "complaint.subtitle": "Choose the problem that troubles you most.",
+  "complaint.speak": "or tell us in your own words",
+  "complaint.heard": "We understood",
+  "complaint.matched": "Is this what you mean?",
+  "complaint.noMatch":
+    "We could not match that to a listed problem, but your words have been saved. Choose the closest one, or continue.",
+  "complaint.continueOwn": "Continue with my own words",
   "complaint.other": "Something else",
   "complaint.otherSub": "Tell us in your own words",
   "complaint.otherLabel": "What is troubling you?",
   "complaint.otherPlaceholder": "For example: pain in the knee since one month",
 
   "intake.progress": "Question {current} of about {total}",
+  "intake.section": "Part {index} of {total}",
   "intake.selectOne": "Choose one",
   "intake.selectMany": "Choose all that apply",
   "intake.speakOr": "Speak your answer",
@@ -193,6 +207,11 @@ export const en = {
   "complete.finish": "Finish",
   "complete.clearing": "Clearing your information from this screen",
   "complete.autoClear": "This screen will clear automatically",
+
+  "idle.title": "Are you still there?",
+  "idle.body": "If nobody answers, this screen will clear so the next patient can use it.",
+  "idle.continue": "Yes, I am here",
+  "idle.counting": "Clearing in {seconds} seconds",
 
   "help.title": "Need help?",
   "help.body":

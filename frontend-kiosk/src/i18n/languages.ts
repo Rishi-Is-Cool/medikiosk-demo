@@ -22,7 +22,7 @@ export interface LanguageOption {
 export const LANGUAGES: LanguageOption[] = [
   { code: "hi", native: "हिन्दी", english: "Hindi", script: "deva", translated: true },
   { code: "en", native: "English", english: "English", script: "latn", translated: true },
-  { code: "mr", native: "मराठी", english: "Marathi", script: "deva", translated: false },
+  { code: "mr", native: "मराठी", english: "Marathi", script: "deva", translated: true },
   { code: "bn", native: "বাংলা", english: "Bengali", script: "beng", translated: false },
   { code: "ta", native: "தமிழ்", english: "Tamil", script: "taml", translated: false },
   { code: "te", native: "తెలుగు", english: "Telugu", script: "telu", translated: false },

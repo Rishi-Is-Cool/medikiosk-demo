@@ -262,7 +262,7 @@ export function IntakeScreen() {
       }
     >
       <div className="mk-container mk-stack mk-stack--loose">
-        <ProgressBar progress={question.progress} />
+        <ProgressBar progress={question.progress} section={question.section} />
 
         <QuestionCard question={question} autoRead>
           {phase === "submitting" ? (
@@ -274,6 +274,7 @@ export function IntakeScreen() {
                   options={question.options}
                   mode={mode}
                   selected={selected}
+                  scaleTone={question.scale_tone}
                   onSelect={(update) => {
                     setSelected(update);
                     // Single-choice commits on tap; multi-select waits for the

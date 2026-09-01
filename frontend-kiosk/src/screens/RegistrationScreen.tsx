@@ -7,6 +7,7 @@ import type { IdentityMethod } from "@/api/types";
 import { ChoiceTile } from "@/components/ChoiceTile";
 import { ErrorState } from "@/components/ErrorState";
 import { Icon } from "@/components/Icon";
+import { IdentityScanner } from "@/components/IdentityScanner";
 import { BackButton, KioskScreen } from "@/components/KioskScreen";
 import { ProcessingState } from "@/components/ProcessingState";
 import { usePatientSession } from "@/context/PatientSession";
@@ -32,6 +33,9 @@ export function RegistrationScreen() {
   const [sex, setSex] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** Set when the identifier came off a photographed card rather than the
+   *  keypad, so the patient is asked to check it before continuing. */
+  const [fromScan, setFromScan] = useState(false);
 
   const canSubmit =
     method === "new"
@@ -117,6 +121,7 @@ export function RegistrationScreen() {
             onClick={() => {
               setMethod(null);
               setFailed(false);
+              setFromScan(false);
             }}
             label={t("common.back")}
           />
@@ -140,6 +145,19 @@ export function RegistrationScreen() {
           <ProcessingState label={t("register.verifying")} />
         ) : (
           <div className="mk-card mk-stack">
+            {method !== "new" && (
+              <>
+                <IdentityScanner
+                  method={method}
+                  onScanned={(value) => {
+                    setIdentifier(method === "aadhaar" ? value.replace(/\D/g, "").slice(-4) : value);
+                    setFromScan(true);
+                  }}
+                />
+                <p className="mk-help mk-center">{t("register.orType")}</p>
+              </>
+            )}
+
             {method === "abha" && (
               <label className="mk-field">
                 <span className="mk-label">{t("register.abhaLabel")}</span>
@@ -148,7 +166,10 @@ export function RegistrationScreen() {
                   value={identifier}
                   inputMode="text"
                   placeholder={t("register.abhaPlaceholder")}
-                  onChange={(event) => setIdentifier(event.target.value)}
+                  onChange={(event) => {
+                    setIdentifier(event.target.value);
+                    setFromScan(false);
+                  }}
                 />
               </label>
             )}
@@ -162,9 +183,22 @@ export function RegistrationScreen() {
                   inputMode="numeric"
                   maxLength={4}
                   placeholder={t("register.aadhaarPlaceholder")}
-                  onChange={(event) => setIdentifier(event.target.value.replace(/\D/g, ""))}
+                  onChange={(event) => {
+                    setIdentifier(event.target.value.replace(/\D/g, ""));
+                    setFromScan(false);
+                  }}
                 />
               </label>
+            )}
+
+            {/* A scanned number is a machine's reading of a photograph, not a
+                verified identity. Asking the patient to confirm it costs one
+                glance and prevents a whole session filed under the wrong ID. */}
+            {fromScan && identifier && (
+              <p className="mk-help mk-scanned">
+                <Icon name="check" size={18} strokeWidth={3} />
+                {t("register.scanned")}
+              </p>
             )}
 
             {method === "new" && (

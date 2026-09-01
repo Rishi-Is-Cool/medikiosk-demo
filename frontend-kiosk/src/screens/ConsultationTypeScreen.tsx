@@ -11,11 +11,11 @@ import { ROUTES } from "@/lib/journey";
 /**
  * Build spec §6.4 — the seam where a history framework is chosen.
  *
- * The project plan explicitly does NOT build AYUSH/Dashavidha Pariksha for
- * the demo, so it is present here as a disabled stub and nothing more. The
- * question components below it are framework-agnostic: they render whatever
- * the engine sends, so plugging in a Dashavidha question set later is a
- * server-side change, not a rewrite of this app.
+ * Both frameworks are live. The choice travels to the question service as
+ * `history_mode`, and the service decides what to ask; this screen does not
+ * know what a Dashavidha Pariksha is, and the question components below it
+ * do not either. That is what "framework-agnostic" was supposed to buy, and
+ * it is why turning AYUSH on was a question-bank change rather than a rewrite.
  */
 export function ConsultationTypeScreen() {
   const router = useRouter();
@@ -51,13 +51,18 @@ export function ConsultationTypeScreen() {
             icon="leaf"
             label={t("mode.ayush")}
             sub={t("mode.ayushSub")}
-            disabled
             showCheck={false}
-            badge={<span className="mk-pill">{t("language.comingSoon")}</span>}
+            onClick={() => {
+              dispatch({ type: "setHistoryMode", mode: "ayush" });
+              router.push(ROUTES.complaint);
+            }}
           />
         </div>
 
-        <p className="mk-meta mk-center">{t("mode.ayushUnavailable")}</p>
+        {/* Said before the choice, not after it. The Ayurveda interview is
+            three times longer, and a patient who was not warned will assume
+            something has gone wrong around question twenty. */}
+        <p className="mk-meta mk-center">{t("mode.ayushNote")}</p>
       </div>
     </KioskScreen>
   );

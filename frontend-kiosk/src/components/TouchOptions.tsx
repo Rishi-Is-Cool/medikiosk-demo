@@ -1,6 +1,6 @@
 "use client";
 
-import type { QuestionOption } from "@/api/types";
+import type { QuestionOption, ScaleTone } from "@/api/types";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { ChoiceTile } from "./ChoiceTile";
 
@@ -45,18 +45,28 @@ export function TouchOptions({
   mode,
   selected,
   onSelect,
+  scaleTone = "severity",
   disabled = false,
 }: {
   options: QuestionOption[];
   mode: OptionMode;
   selected: string[];
   onSelect: (update: SelectionUpdate) => void;
+  scaleTone?: ScaleTone;
   disabled?: boolean;
 }) {
   const { t } = useLanguage();
 
   if (mode === "scale") {
-    return <ScaleOptions options={options} selected={selected} onSelect={onSelect} disabled={disabled} />;
+    return (
+      <ScaleOptions
+        options={options}
+        selected={selected}
+        onSelect={onSelect}
+        tone={scaleTone}
+        disabled={disabled}
+      />
+    );
   }
 
   const toggle = (option: QuestionOption) => {
@@ -86,21 +96,38 @@ export function TouchOptions({
   );
 }
 
-/** Ordinal answers get the graded ramp from tokens.css rather than four
- *  identical tiles — severity is easier to read as a slope than as a list. */
+/**
+ * Ordinal answers read better as a slope than as a list of identical tiles.
+ *
+ * The ramp depends entirely on which way the scale means. A severity scale
+ * climbs toward alarm. A Dashavidha grading axis climbs toward *optimum* —
+ * running the same red ramp over it would paint "strong and glossy hair" as
+ * the danger end, and would tell a patient their own constitution is an
+ * emergency. Grading axes get a neutral ramp of the brand colour instead:
+ * the pip count still encodes the order, without a value judgement.
+ */
 function ScaleOptions({
   options,
   selected,
   onSelect,
+  tone,
   disabled,
 }: {
   options: QuestionOption[];
   selected: string[];
   onSelect: (update: SelectionUpdate) => void;
+  tone: ScaleTone;
   disabled: boolean;
 }) {
   const { t } = useLanguage();
-  const ramp = ["grade-high", "grade-mid", "grade-low", "emergency"];
+  // Severity climbs through the warning colours. Grading stays one neutral
+  // colour — the number of filled pips already carries the order, so hue is
+  // free to say nothing, which is exactly what it should say here.
+  const severityRamp = ["grade-high", "grade-mid", "grade-low", "emergency"];
+  const colourFor = (index: number) =>
+    tone === "grade"
+      ? "var(--primary)"
+      : `var(--${severityRamp[Math.min(index, severityRamp.length - 1)]})`;
 
   return (
     <div className="mk-stack mk-stack--tight">
@@ -112,7 +139,7 @@ function ScaleOptions({
             type="button"
             className="mk-scale__step"
             data-selected={selected.includes(option.value)}
-            style={{ "--step-colour": `var(--${ramp[Math.min(index, ramp.length - 1)]})` } as React.CSSProperties}
+            style={{ "--step-colour": colourFor(index) } as React.CSSProperties}
             disabled={disabled}
             onClick={() => onSelect([option.value])}
           >

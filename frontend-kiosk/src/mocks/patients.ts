@@ -7,7 +7,12 @@
    may be described as verified identity.
    ========================================================================== */
 
-import type { PatientSessionInfo, RegistrationRequest } from "@/api/types";
+import type {
+  IdentityMethod,
+  IdentityScanResult,
+  PatientSessionInfo,
+  RegistrationRequest,
+} from "@/api/types";
 
 /** A couple of fixtures so a demo can show the "returning patient" case.
  *  Any other identifier registers as a first-time visitor. */
@@ -36,6 +41,20 @@ function maskIdentifier(method: RegistrationRequest["identity_method"], raw: str
   const tail = raw.replace(/\D/g, "").slice(-4);
   if (!tail) return "";
   return method === "aadhaar" ? `•••• •••• ${tail}` : `••-••••-••••-${tail}`;
+}
+
+/**
+ * MOCK card OCR.
+ *
+ * Returns the known fixture so a scan demo lands on the "returning patient"
+ * path. No image is inspected — the real service reads the card.
+ */
+export function mockScanIdentity(method: IdentityMethod): IdentityScanResult {
+  return {
+    identity_method: method,
+    identifier: method === "aadhaar" ? "9876" : "12-3456-7890-1234",
+    confidence: 0.96,
+  };
 }
 
 export function mockRegister(request: RegistrationRequest): PatientSessionInfo {

@@ -4,12 +4,14 @@
 import { ENDPOINTS, MOCK_LATENCY, USE_MOCKS, mockDelay } from "./config";
 import { request } from "./http";
 import { mockExtraction } from "@/mocks/extraction";
-import { mockComplaints, mockNextQuestion } from "@/mocks/questions";
+import { mockComplaints, mockMatchComplaint, mockNextQuestion } from "@/mocks/questions";
 import {
   ApiError,
   type AnswerPayload,
   type ChiefComplaintOption,
+  type ComplaintMatch,
   type ExtractionResult,
+  type HistoryMode,
   type IntakeResponse,
   type LanguageCode,
   type StartIntakeRequest,
@@ -22,6 +24,7 @@ import {
 
 interface MockInterview {
   complaint: string;
+  historyMode: HistoryMode;
   answers: Record<string, AnswerPayload>;
 }
 
@@ -39,14 +42,43 @@ export const intakeApi = {
     );
   },
 
+  /**
+   * Map a spoken complaint onto the known complaint list.
+   *
+   * The problem statement's own example opens with the patient *saying* their
+   * complaint — "on stating 'chest pain', it probes onset, character..." — so
+   * the complaint screen needs a voice path like every other question. Which
+   * words mean which complaint is the question service's business, because it
+   * is the same component that decides what line of questioning to open. A
+   * null match is a valid answer, not a failure: the words are carried
+   * through as a free-text complaint rather than thrown away.
+   */
+  async matchComplaint(transcript: string, language: LanguageCode): Promise<ComplaintMatch> {
+    if (USE_MOCKS) {
+      await mockDelay(MOCK_LATENCY.fast);
+      return mockMatchComplaint(transcript, language);
+    }
+
+    return request<ComplaintMatch>(ENDPOINTS.intake.matchComplaint, {
+      method: "POST",
+      body: JSON.stringify({ transcript, language }),
+    });
+  },
+
   async startIntake(payload: StartIntakeRequest): Promise<IntakeResponse> {
     if (USE_MOCKS) {
       await mockDelay(MOCK_LATENCY.normal);
       mockInterviews.set(payload.session_id, {
         complaint: payload.chief_complaint,
+        historyMode: payload.history_mode,
         answers: {},
       });
-      return mockNextQuestion(payload.chief_complaint, {}, payload.language);
+      return mockNextQuestion(
+        payload.chief_complaint,
+        payload.history_mode,
+        {},
+        payload.language,
+      );
     }
 
     return request<IntakeResponse>(ENDPOINTS.intake.start, {
@@ -70,7 +102,12 @@ export const intakeApi = {
       if (!interview) {
         throw new ApiError("unknown_session", `No mock interview for ${sessionId}`, false);
       }
-      return mockNextQuestion(interview.complaint, interview.answers, language);
+      return mockNextQuestion(
+        interview.complaint,
+        interview.historyMode,
+        interview.answers,
+        language,
+      );
     }
 
     return request<IntakeResponse>(
@@ -109,7 +146,12 @@ export const intakeApi = {
         return { question: null, priority: { priority: "normal", red_flag: false, action: "continue" }, complete: true };
       }
       interview.answers[payload.question_id] = payload.answer;
-      return mockNextQuestion(interview.complaint, interview.answers, payload.language);
+      return mockNextQuestion(
+        interview.complaint,
+        interview.historyMode,
+        interview.answers,
+        payload.language,
+      );
     }
 
     return request<IntakeResponse>(ENDPOINTS.intake.answer, {

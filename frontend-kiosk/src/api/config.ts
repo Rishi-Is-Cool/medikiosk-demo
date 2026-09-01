@@ -24,12 +24,14 @@ export const ENDPOINTS = {
     register: "/patient/register", // TODO(backend): confirm path + payload
     session: "/patient/session", // TODO(backend): confirm path + payload
     consent: "/patient/consent", // TODO(backend): confirm path + payload
+    scanIdentity: "/patient/scan-identity", // TODO(backend): OCR of an ABHA/Aadhaar card
   },
   intake: {
     start: "/intake/start", // TODO(backend): confirm path + payload
     question: "/intake/question", // TODO(backend): confirm path + payload
     answer: "/intake/answer", // TODO(backend): confirm path + payload
     complaints: "/intake/complaints", // TODO(backend): confirm path + payload
+    matchComplaint: "/intake/match-complaint", // TODO(backend): spoken words -> complaint id
   },
   speech: {
     transcribe: "/speech/transcribe", // TODO(backend): Whisper stays server-side
