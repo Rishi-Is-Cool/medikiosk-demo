@@ -1,0 +1,288 @@
+/* ==========================================================================
+   MediKiosk design tokens — single source of truth
+   --------------------------------------------------------------------------
+   Import ONCE at the root of each app, before any other stylesheet:
+
+     frontend-kiosk/src/index.css    @import "@medikiosk/tokens/tokens.css";
+     frontend-doctor/src/index.css   @import "@medikiosk/tokens/tokens.css";
+
+   Then set the density on <html>:  data-density="kiosk" | "dashboard"
+
+   RULE: no component anywhere hardcodes a colour. If you need a colour that
+   isn't here, add it here first. A hex value in a component file is a bug.
+
+   CONTRAST: every foreground/background pair the UI actually renders was
+   checked against WCAG 2.1 AA (4.5:1 for text). Eight pairs failed and were
+   corrected by walking lightness while holding hue and saturation:
+     light  --text-3 #7C8C97->#5D6C76 · --warning #A2670A->#986109
+            --info #2E7FB8->#2870A2 · --line #D2DCE2->#C7D4DB
+     dark   --text-3 #74858F->#7E8E97 · --line #26323A->#2E3D46
+   Re-run the audit if you change any of these. On a washed-out hospital
+   monitor the margin is what keeps muted text legible at all.
+
+   HEX VALUES BELOW ARE PROPOSALS. The colour scheme doc names the ten roles
+   but carries no values. These are picked to match those names and to hold
+   contrast on a washed-out 1366x768 hospital monitor. Sign them off as a
+   team, then treat this block as frozen.
+   ========================================================================== */
+
+:root {
+
+  /* --- The ten roles from MediKiosk_Colour_Scheme.docx -------------------- */
+
+  --primary:            #0B6E63;   /* Medical Teal    — brand, primary buttons, active states */
+  --primary-hover:      #095A51;
+  --primary-soft:       #DCEDEA;   /* tinted fill for chips and selected options */
+  --primary-ink:        #06463E;   /* text on --primary-soft */
+
+  --secondary:          #1F5C9E;   /* Hospital Blue   — secondary buttons, info cards, icons */
+  --secondary-soft:     #DEE9F5;
+  --secondary-ink:      #143F6E;
+
+  --bg:                 #EEF3F6;   /* Ice Blue        — app background */
+  --card:               #FFFFFF;   /* Clinical White  — cards, forms, panels */
+
+  --text:               #0F1F2B;   /* Deep Navy Blue  — headings, questions, key labels */
+  --text-2:             #566875;   /* Slate Gray      — instructions, helper text */
+
+  --success:            #2C6E36;   /* Medical Green   — completed uploads, confirmations */
+  --success-soft:       #E1EFE2;
+  --success-ink:        #1D4B24;
+
+  --warning:            #986109;   /* Warm Amber      — review prompts, unclear documents */
+  --warning-soft:       #FAEFDA;
+  --warning-ink:        #6E4506;
+
+  --emergency:          #AF2A20;   /* Clinical Red    — priority alerts, emergency states */
+  --emergency-soft:     #F9E4E2;
+  --emergency-ink:      #7A1B14;
+
+  --info:               #2870A2;   /* Sky Blue        — informational guidance */
+  --info-soft:          #E1EFF7;
+  --info-ink:           #1C5580;
+
+  /* --- Added for the doctor dashboard ------------------------------------
+     The kiosk barely needs these; a dense clinical table cannot exist
+     without them. Same language, extended vocabulary.                      */
+
+  --text-3:             #5D6C76;   /* metadata, timestamps, empty states */
+  --line:               #C7D4DB;   /* default hairline */
+  --line-strong:        #B4C2CA;   /* emphasised divider, input borders */
+  --surface-2:          #E6ECF0;   /* header bars, section headings */
+  --surface-sunken:     #DDE5EA;   /* behind cards, table group headers */
+  --row-hover:          #F2F6F8;
+
+  /* --- Provenance chips --------------------------------------------------
+     These four MUST be identical in both apps. The kiosk shows the patient
+     what it captured; the console shows the doctor where it came from.     */
+
+  --src-spoken:         #5D6C76;   /* MIC — patient stated, unverified */
+  --src-spoken-soft:    transparent;
+  --src-document:       #0B6E63;   /* DOC — extracted from a record, verifiable */
+  --src-document-soft:  #DCEDEA;
+  --src-history:        #566875;   /* HX  — carried from a prior encounter */
+  --src-history-soft:   #E6ECF0;
+  --src-clinician:      #2C6E36;   /* MD  — entered by a doctor, authoritative */
+  --src-clinician-soft: #E1EFE2;
+
+  /* --- Ordinal grading (Dashavidha: pravara / madhyama / avara) ----------- */
+
+  --grade-high:         #2C6E36;
+  --grade-mid:          #986109;
+  --grade-low:          #AF2A20;
+  --grade-empty:        #C6D2D9;   /* unfilled pip */
+
+  /* --- Alert severity — exactly three, no more ---------------------------
+     Agree these in the design meeting and never add a fourth. A fourth
+     severity means nobody trusts the first three.                          */
+
+  --sev-critical:       var(--emergency);
+  --sev-critical-bg:    var(--emergency-soft);
+  --sev-warning:        var(--warning);
+  --sev-warning-bg:     var(--warning-soft);
+  --sev-info:           var(--info);
+  --sev-info-bg:        var(--info-soft);
+
+  /* --- Type -------------------------------------------------------------- */
+
+  --font-sans:  "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:  "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+  --font-deva:  "Noto Sans Devanagari", var(--font-sans);   /* Hindi + Sanskrit terms */
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold:   600;
+
+  /* --- Motion ------------------------------------------------------------ */
+
+  --dur-fast:   120ms;
+  --dur-base:   200ms;
+  --ease:       cubic-bezier(.2, .0, .2, 1);
+}
+
+
+/* ==========================================================================
+   Dark mode — doctor console only in practice, but defined for both.
+   The kiosk runs in a bright hospital foyer and should stay light; the
+   console may run in a dim consult room. Tokens flip, components don't.
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary:            #46B3A4;
+    --primary-hover:      #5FC4B6;
+    --primary-soft:       #0E322D;
+    --primary-ink:        #8FDCD0;
+
+    --secondary:          #6BA6DF;
+    --secondary-soft:     #12293F;
+    --secondary-ink:      #A9CDEE;
+
+    --bg:                 #0C1216;
+    --card:               #151D22;
+
+    --text:               #E5ECF0;
+    --text-2:             #A0B0BA;
+    --text-3:             #7E8E97;
+
+    --success:            #79B981;
+    --success-soft:       #16281A;
+    --success-ink:        #A8D5AE;
+
+    --warning:            #D9A54F;
+    --warning-soft:       #2C2211;
+    --warning-ink:        #EDC689;
+
+    --emergency:          #E8877D;
+    --emergency-soft:     #33150F;
+    --emergency-ink:      #F3B0A8;
+
+    --info:               #63A8D6;
+    --info-soft:          #12293A;
+    --info-ink:           #9BC9E6;
+
+    --line:               #2E3D46;
+    --line-strong:        #3A4A54;
+    --surface-2:          #1C262C;
+    --surface-sunken:     #0A1014;
+    --row-hover:          #1E2930;
+
+    --src-spoken:         #7E8E97;
+    --src-spoken-soft:    transparent;
+    --src-document:       #46B3A4;
+    --src-document-soft:  #0E322D;
+    --src-history:        #A0B0BA;
+    --src-history-soft:   #1C262C;
+    --src-clinician:      #79B981;
+    --src-clinician-soft: #16281A;
+
+    --grade-high:         #79B981;
+    --grade-mid:          #D9A54F;
+    --grade-low:          #E8877D;
+    --grade-empty:        #33424B;
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary:#46B3A4; --primary-hover:#5FC4B6; --primary-soft:#0E322D; --primary-ink:#8FDCD0;
+  --secondary:#6BA6DF; --secondary-soft:#12293F; --secondary-ink:#A9CDEE;
+  --bg:#0C1216; --card:#151D22;
+  --text:#E5ECF0; --text-2:#A0B0BA; --text-3:#7E8E97;
+  --success:#79B981; --success-soft:#16281A; --success-ink:#A8D5AE;
+  --warning:#D9A54F; --warning-soft:#2C2211; --warning-ink:#EDC689;
+  --emergency:#E8877D; --emergency-soft:#33150F; --emergency-ink:#F3B0A8;
+  --info:#63A8D6; --info-soft:#12293A; --info-ink:#9BC9E6;
+  --line:#2E3D46; --line-strong:#3A4A54; --surface-2:#1C262C; --surface-sunken:#0A1014; --row-hover:#1E2930;
+  --src-spoken:#7E8E97; --src-spoken-soft:transparent;
+  --src-document:#46B3A4; --src-document-soft:#0E322D;
+  --src-history:#A0B0BA; --src-history-soft:#1C262C;
+  --src-clinician:#79B981; --src-clinician-soft:#16281A;
+  --grade-high:#79B981; --grade-mid:#D9A54F; --grade-low:#E8877D; --grade-empty:#33424B;
+}
+
+
+/* ==========================================================================
+   Density — the only thing the two apps disagree about.
+   Colour, type family and alert language are shared. Scale is not.
+   ========================================================================== */
+
+:root[data-density="kiosk"] {
+  --fs-xs:    14px;
+  --fs-sm:    16px;
+  --fs-base:  20px;
+  --fs-lg:    26px;
+  --fs-xl:    34px;
+  --fs-display: 44px;
+
+  --space-1:  8px;
+  --space-2:  16px;
+  --space-3:  24px;
+  --space-4:  32px;
+  --space-5:  48px;
+
+  --target-min: 56px;      /* minimum tap target — elderly, gloved, unsteady hands */
+  --radius:     10px;
+  --measure:    28ch;      /* one question, comfortably readable at arm's length */
+}
+
+:root[data-density="dashboard"] {
+  --fs-xs:    11px;
+  --fs-sm:    12.5px;
+  --fs-base:  14px;
+  --fs-lg:    17px;
+  --fs-xl:    21px;
+  --fs-display: 28px;
+
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  18px;
+  --space-5:  28px;
+
+  --target-min: 32px;      /* mouse, trained daily user */
+  --radius:     4px;
+  --measure:    72ch;
+}
+
+
+/* ==========================================================================
+   Shared primitives — the handful of things that must look identical.
+   Everything else lives in each app's own stylesheet.
+   ========================================================================== */
+
+.mk-chip-src {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  padding: 2px 5px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.mk-chip-src[data-src="patient_spoken"]  { color: var(--src-spoken);    background: var(--src-spoken-soft); }
+.mk-chip-src[data-src="document"]        { color: var(--src-document);  background: var(--src-document-soft); }
+.mk-chip-src[data-src="prior_encounter"] { color: var(--src-history);   background: var(--src-history-soft); }
+.mk-chip-src[data-src="clinician"]       { color: var(--src-clinician); background: var(--src-clinician-soft); }
+
+.mk-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid currentColor;
+  border-radius: 0;
+  font-size: var(--fs-base);
+}
+.mk-alert[data-sev="critical"] { color: var(--sev-critical); background: var(--sev-critical-bg); }
+.mk-alert[data-sev="warning"]  { color: var(--sev-warning);  background: var(--sev-warning-bg); }
+.mk-alert[data-sev="info"]     { color: var(--sev-info);     background: var(--sev-info-bg); }
+
+/* Devanagari runs slightly small against Latin at the same px size. */
+:lang(hi), :lang(sa), .mk-deva { font-family: var(--font-deva); font-size: 1.06em; }
+
+/* Numbers that stack in columns must align. Non-negotiable in labs and vitals. */
+.mk-num { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

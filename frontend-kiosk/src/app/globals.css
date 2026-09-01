@@ -1,0 +1,29 @@
+/* ==========================================================================
+   MediKiosk — patient kiosk stylesheet entry point.
+
+   Load order matters and is the only thing this file decides:
+
+     1. tokens.css      the single source of truth for colour, type and scale
+     2. base.css        reset, screen shell, shared primitives
+     3. components.css  the pieces that only exist in this app
+
+   tokens.css must never be edited here — sync it from About/tokens.css (see
+   README). Its rule carries through all three files: no component hardcodes a
+   colour. A hex value outside tokens.css is a bug.
+   ========================================================================== */
+
+@import "../styles/tokens.css";
+@import "../styles/base.css";
+@import "../styles/components.css";
+
+/* --- Font binding --------------------------------------------------------
+   tokens.css chooses the families by name. This says where the files come
+   from: next/font self-hosts them and exposes each as a variable, and the
+   fallback stacks are the ones tokens.css already specified. Nothing here
+   changes the design decision — it only makes it load offline.            */
+
+:root {
+  --font-sans: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "Cascadia Mono", monospace;
+  --font-deva: var(--font-noto-deva), var(--font-sans);
+}
