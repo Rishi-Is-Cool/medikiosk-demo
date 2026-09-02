@@ -33,10 +33,12 @@ class FasterWhisperProvider(TranscriptionProvider):
         model_size: str = DEFAULT_MODEL_SIZE,
         device: str = "cpu",
         compute_type: str = "int8",
+        initial_prompt: Optional[str] = None,
     ) -> None:
         self._model_size = model_size
         self._device = device
         self._compute_type = compute_type
+        self._initial_prompt = initial_prompt
         self._model = self._load_model()
 
     # ------------------------------------------------------------------
@@ -90,6 +92,8 @@ class FasterWhisperProvider(TranscriptionProvider):
                 audio_path,
                 language=language,
                 beam_size=5,
+                initial_prompt=self._initial_prompt,
+                vad_filter=True,
             )
 
             # Materialise the lazy segment generator into full text.
