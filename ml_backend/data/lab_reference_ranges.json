@@ -1,0 +1,201 @@
+{
+  "hba1c": {
+    "canonical_name": "HbA1c",
+    "unit": "%",
+    "upper_limit": 5.7,
+    "default_range_str": "<5.7%",
+    "description": "Glycated Hemoglobin (<5.7% Normal, 5.7-6.4% Prediabetes, >=6.5% Diabetes)"
+  },
+  "fasting blood sugar": {
+    "canonical_name": "Fasting Blood Glucose",
+    "unit": "mg/dL",
+    "lower_limit": 70.0,
+    "upper_limit": 99.0,
+    "default_range_str": "70-99 mg/dL"
+  },
+  "fbs": {
+    "canonical_name": "Fasting Blood Glucose",
+    "unit": "mg/dL",
+    "lower_limit": 70.0,
+    "upper_limit": 99.0,
+    "default_range_str": "70-99 mg/dL"
+  },
+  "post prandial blood sugar": {
+    "canonical_name": "Post Prandial Blood Glucose",
+    "unit": "mg/dL",
+    "upper_limit": 140.0,
+    "default_range_str": "<140 mg/dL"
+  },
+  "ppbs": {
+    "canonical_name": "Post Prandial Blood Glucose",
+    "unit": "mg/dL",
+    "upper_limit": 140.0,
+    "default_range_str": "<140 mg/dL"
+  },
+  "random blood sugar": {
+    "canonical_name": "Random Blood Glucose",
+    "unit": "mg/dL",
+    "upper_limit": 140.0,
+    "default_range_str": "70-140 mg/dL"
+  },
+  "rbs": {
+    "canonical_name": "Random Blood Glucose",
+    "unit": "mg/dL",
+    "upper_limit": 140.0,
+    "default_range_str": "70-140 mg/dL"
+  },
+  "hemoglobin": {
+    "canonical_name": "Hemoglobin",
+    "unit": "g/dL",
+    "lower_limit": 12.0,
+    "upper_limit": 17.5,
+    "default_range_str": "12.0-17.5 g/dL"
+  },
+  "hb": {
+    "canonical_name": "Hemoglobin",
+    "unit": "g/dL",
+    "lower_limit": 12.0,
+    "upper_limit": 17.5,
+    "default_range_str": "12.0-17.5 g/dL"
+  },
+  "total leukocyte count": {
+    "canonical_name": "Total Leukocyte Count (TLC)",
+    "unit": "cells/cu.mm",
+    "lower_limit": 4000.0,
+    "upper_limit": 11000.0,
+    "default_range_str": "4000-11000 cells/cu.mm"
+  },
+  "tlc": {
+    "canonical_name": "Total Leukocyte Count (TLC)",
+    "unit": "cells/cu.mm",
+    "lower_limit": 4000.0,
+    "upper_limit": 11000.0,
+    "default_range_str": "4000-11000 cells/cu.mm"
+  },
+  "wbc": {
+    "canonical_name": "White Blood Cell Count",
+    "unit": "cells/cu.mm",
+    "lower_limit": 4000.0,
+    "upper_limit": 11000.0,
+    "default_range_str": "4000-11000 /uL"
+  },
+  "platelet count": {
+    "canonical_name": "Platelet Count",
+    "unit": "lakhs/cu.mm",
+    "lower_limit": 1.5,
+    "upper_limit": 4.5,
+    "default_range_str": "1.5-4.5 lakhs/cu.mm"
+  },
+  "platelets": {
+    "canonical_name": "Platelet Count",
+    "unit": "lakhs/cu.mm",
+    "lower_limit": 1.5,
+    "upper_limit": 4.5,
+    "default_range_str": "1.5-4.5 lakhs/cu.mm"
+  },
+  "serum creatinine": {
+    "canonical_name": "Serum Creatinine",
+    "unit": "mg/dL",
+    "lower_limit": 0.6,
+    "upper_limit": 1.2,
+    "default_range_str": "0.6-1.2 mg/dL"
+  },
+  "creatinine": {
+    "canonical_name": "Serum Creatinine",
+    "unit": "mg/dL",
+    "lower_limit": 0.6,
+    "upper_limit": 1.2,
+    "default_range_str": "0.6-1.2 mg/dL"
+  },
+  "blood urea": {
+    "canonical_name": "Blood Urea",
+    "unit": "mg/dL",
+    "lower_limit": 15.0,
+    "upper_limit": 45.0,
+    "default_range_str": "15-45 mg/dL"
+  },
+  "bun": {
+    "canonical_name": "Blood Urea Nitrogen",
+    "unit": "mg/dL",
+    "lower_limit": 7.0,
+    "upper_limit": 20.0,
+    "default_range_str": "7-20 mg/dL"
+  },
+  "sgot": {
+    "canonical_name": "SGOT / AST",
+    "unit": "U/L",
+    "upper_limit": 40.0,
+    "default_range_str": "<40 U/L"
+  },
+  "ast": {
+    "canonical_name": "SGOT / AST",
+    "unit": "U/L",
+    "upper_limit": 40.0,
+    "default_range_str": "<40 U/L"
+  },
+  "sgpt": {
+    "canonical_name": "SGPT / ALT",
+    "unit": "U/L",
+    "upper_limit": 40.0,
+    "default_range_str": "<40 U/L"
+  },
+  "alt": {
+    "canonical_name": "SGPT / ALT",
+    "unit": "U/L",
+    "upper_limit": 40.0,
+    "default_range_str": "<40 U/L"
+  },
+  "total bilirubin": {
+    "canonical_name": "Total Bilirubin",
+    "unit": "mg/dL",
+    "lower_limit": 0.2,
+    "upper_limit": 1.2,
+    "default_range_str": "0.2-1.2 mg/dL"
+  },
+  "total cholesterol": {
+    "canonical_name": "Total Cholesterol",
+    "unit": "mg/dL",
+    "upper_limit": 200.0,
+    "default_range_str": "<200 mg/dL"
+  },
+  "triglycerides": {
+    "canonical_name": "Triglycerides",
+    "unit": "mg/dL",
+    "upper_limit": 150.0,
+    "default_range_str": "<150 mg/dL"
+  },
+  "tsh": {
+    "canonical_name": "Thyroid Stimulating Hormone (TSH)",
+    "unit": "uIU/mL",
+    "lower_limit": 0.4,
+    "upper_limit": 4.5,
+    "default_range_str": "0.4-4.5 uIU/mL"
+  },
+  "esr": {
+    "canonical_name": "Erythrocyte Sedimentation Rate (ESR)",
+    "unit": "mm/1st hr",
+    "upper_limit": 20.0,
+    "default_range_str": "<20 mm/hr"
+  },
+  "serum sodium": {
+    "canonical_name": "Serum Sodium",
+    "unit": "mEq/L",
+    "lower_limit": 135.0,
+    "upper_limit": 145.0,
+    "default_range_str": "135-145 mEq/L"
+  },
+  "serum potassium": {
+    "canonical_name": "Serum Potassium",
+    "unit": "mEq/L",
+    "lower_limit": 3.5,
+    "upper_limit": 5.1,
+    "default_range_str": "3.5-5.1 mEq/L"
+  },
+  "uric acid": {
+    "canonical_name": "Serum Uric Acid",
+    "unit": "mg/dL",
+    "lower_limit": 3.5,
+    "upper_limit": 7.2,
+    "default_range_str": "3.5-7.2 mg/dL"
+  }
+}
