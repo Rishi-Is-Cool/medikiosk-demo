@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: medikiosk_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./medikiosk.db
+      - SECRET_KEY=medikiosk_super_secret_key_change_in_production
+      - ENVIRONMENT=production
+    volumes:
+      - ./data:/app/data
+    restart: always
