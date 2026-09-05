@@ -21,7 +21,7 @@ RED_FLAG_PATTERNS = [
         ),
         # Must match at least 1 primary keyword
         "primary_keywords": [
-            "chest pain", "chest tightness", "छाती में दर्द", "छातीत वेदना",
+            "chest pain", "chest tightness", "छाती में दर्द", "छाती में तेज दर्द", "छातीत वेदना",
             "chest_pain", "tightness in chest", "pressing chest",
             "हृदय दर्द", "heart pain"
         ],
@@ -29,7 +29,7 @@ RED_FLAG_PATTERNS = [
         "co_symptoms": [
             "shortness of breath", "breathlessness", "diaphoresis",
             "cold sweat", "cold_sweats", "left arm pain", "radiates_arm_jaw",
-            "सांस फूलना", "ठंडा पसीना", "shortness_of_breath"
+            "सांस फूलना", "सांस लेने में तकलीफ", "ठंडा पसीना", "shortness_of_breath"
         ]
     },
     {

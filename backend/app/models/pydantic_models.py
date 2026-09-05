@@ -111,3 +111,58 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     role: str
+
+
+# Integrated kiosk and doctor-console contracts.  They intentionally use
+# opaque session/encounter references instead of exposing numeric database IDs.
+class RegistrationRequest(BaseModel):
+    identity_method: str = "new"
+    identifier: Optional[str] = None
+    language: str = "en"
+    new_patient: Optional[Dict[str, str]] = None
+
+
+class ConsentSubmission(BaseModel):
+    session_id: str
+    granted: List[str] = Field(default_factory=list)
+    declined: List[str] = Field(default_factory=list)
+    language: str = "en"
+    audio_explanation_played: bool = False
+
+
+class StartIntakeRequestV2(BaseModel):
+    session_id: str
+    history_mode: str
+    chief_complaint: str
+    chief_complaint_text: Optional[str] = None
+    language: str = "en"
+
+
+class AnswerPayload(BaseModel):
+    source: str
+    values: List[str] = Field(default_factory=list)
+    text: Optional[str] = None
+
+
+class SubmitIntakeAnswerRequest(BaseModel):
+    session_id: str
+    question_id: str
+    answer: AnswerPayload
+    language: str = "en"
+    mode: Optional[str] = None
+
+
+class LedgerRequest(BaseModel):
+    treatment_change: bool = False
+    previous_treatment: Optional[str] = None
+    new_treatment: Optional[str] = None
+    deviation_reason: Optional[str] = None
+    doctor_rationale: Optional[str] = None
+    advice: List[Dict[str, Any]] = Field(default_factory=list)
+    follow_up_required: bool = False
+    follow_up_timeframe: Optional[str] = None
+    doctor_confirmed: bool = False
+
+
+class DoctorQuestionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)

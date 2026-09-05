@@ -211,13 +211,10 @@ class TestMedicalExtractorUnit:
         # Should get lab results (real extraction or simulated fallback)
         assert len(result["lab_results"]) > 0
 
-    def test_fallback_returns_defaults_when_no_data(self):
-        """When OCR text has no recognizable patterns, defaults are returned."""
+    def test_unknown_text_does_not_create_clinical_defaults(self):
+        """Unrecognised text must not be converted into invented facts."""
         result = medical_extractor.extract_entities("random unrelated text blah blah")
-        # Should return fallback defaults
-        assert len(result["diagnoses"]) > 0
-        assert len(result["medications"]) > 0
-        assert len(result["lab_results"]) > 0
+        assert result == {"diagnoses": [], "medications": [], "lab_results": []}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

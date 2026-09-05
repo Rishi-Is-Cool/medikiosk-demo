@@ -2,7 +2,7 @@
 MediKiosk Backend — Medical Document OCR Engine
 Supports:
   - Gemini Vision API (when GEMINI_API_KEY is set) for real handwritten/printed documents
-  - Realistic simulation fallback for development/testing without API key
+  - Explicit synthetic fixtures for tests only (opt-in)
 """
 import os
 import base64
@@ -71,7 +71,8 @@ class OCREngine:
     """
     Medical Document OCR Engine.
     Uses Google Gemini Vision API when GEMINI_API_KEY is configured in environment.
-    Falls back to structured simulation templates for local development/testing.
+    Never fabricates clinical text for an uploaded document.  Synthetic fixtures
+    are available only when explicitly enabled by the test environment.
     """
 
     def __init__(self):
@@ -80,7 +81,7 @@ class OCREngine:
         if self.use_gemini:
             logger.info("OCR Engine: Gemini Vision API enabled for real document extraction.")
         else:
-            logger.info("OCR Engine: Running in simulation mode (no GEMINI_API_KEY set).")
+            logger.info("OCR Engine: no live provider configured.")
 
     def extract_text(self, file_path: str, document_type: str = "lab_report") -> Dict[str, Any]:
         """
@@ -95,8 +96,11 @@ class OCREngine:
         """
         if self.use_gemini and os.path.exists(file_path):
             return self._extract_with_gemini(file_path, document_type)
-        else:
+        if os.getenv("MEDIKIOSK_USE_SYNTHETIC_OCR_FIXTURES") == "1":
             return self._extract_simulated(file_path, document_type)
+        return {"success": False, "ocr_text": "", "extracted_date": None,
+                "document_type": document_type, "engine_used": "unavailable",
+                "error": "No document extraction provider is configured."}
 
     def _extract_with_gemini(self, file_path: str, document_type: str) -> Dict[str, Any]:
         """
@@ -160,12 +164,14 @@ class OCREngine:
             }
 
         except Exception as e:
-            logger.warning(f"Gemini OCR failed: {e}. Falling back to simulation.")
-            return self._extract_simulated(file_path, document_type)
+            logger.warning("Gemini OCR failed: %s", e)
+            return {"success": False, "ocr_text": "", "extracted_date": None,
+                    "document_type": document_type, "engine_used": "Gemini Vision API",
+                    "error": "Document extraction failed."}
 
     def _extract_simulated(self, file_path: str, document_type: str) -> Dict[str, Any]:
         """
-        Return a realistic clinical document simulation for development/testing.
+        Return a named synthetic fixture for tests. Never enable this in runtime.
         """
         # Determine which template to use
         if "lab" in document_type.lower():

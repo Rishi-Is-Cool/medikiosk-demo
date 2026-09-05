@@ -346,13 +346,28 @@ AYUSH_STEPS = [
         ]
     },
     {
-        "id": "ayush_q10_vaya_ahara_vihara",
+        "id": "ayush_q10_vyayama_shakti",
         "step": 10,
         "input_type": "voice_or_text",
         "question_text": {
-            "en": "Dashavidha Pariksha (10/10) — Vaya & Ahara-Vihara: Your age group and daily diet/lifestyle routine.",
-            "hi": "दशविध परीक्षा (10/10) — वय एवं आहार-विहार: आयु वर्ग और दैनिक आहार एवं जीवनशैली।",
-            "mr": "दशविध परीक्षा (10/10) — वय आणि आहार-विहार: वयोगट आणि दैनंदिन आहार व जीवनशैली."
+            "en": "Dashavidha Pariksha (10/11) — Vyayama Shakti: How much physical activity can you comfortably do?",
+            "hi": "दशविध परीक्षा (10/11) — व्यायाम शक्ति: आप आराम से कितना शारीरिक कार्य कर सकते हैं?",
+            "mr": "दशविध परीक्षा (10/11) — व्यायाम शक्ती: तुम्ही आरामात किती शारीरिक काम करू शकता?"
+        },
+        "options": [
+            {"label": "High exercise tolerance / उच्च व्यायाम क्षमता", "value": "high_vyayama"},
+            {"label": "Moderate exercise tolerance / मध्यम व्यायाम क्षमता", "value": "moderate_vyayama"},
+            {"label": "Low exercise tolerance / कम व्यायाम क्षमता", "value": "low_vyayama"}
+        ]
+    },
+    {
+        "id": "ayush_q11_vaya_ahara_vihara",
+        "step": 11,
+        "input_type": "voice_or_text",
+        "question_text": {
+            "en": "Dashavidha Pariksha (11/11) — Vaya & Ahara-Vihara: Your age group and daily diet/lifestyle routine.",
+            "hi": "दशविध परीक्षा (11/11) — वय एवं आहार-विहार: आयु वर्ग और दैनिक आहार एवं जीवनशैली।",
+            "mr": "दशविध परीक्षा (11/11) — वय आणि आहार-विहार: वयोगट आणि दैनंदिन आहार व जीवनशैली."
         },
         "options": [
             {"label": "Bala (Child/Youth < 16) / बाल अवस्था", "value": "bala"},

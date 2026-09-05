@@ -64,17 +64,6 @@ class MedicalExtractor:
                             "category": "Blood Test"
                         })
 
-        return {
-            "diagnoses": diagnoses if diagnoses else ["Essential Hypertension", "Type 2 Diabetes Mellitus"],
-            "medications": medications if medications else [
-                {"name": "Metformin", "dosage": "500mg", "frequency": "1-0-1 (BD)"},
-                {"name": "Telmisartan", "dosage": "40mg", "frequency": "1-0-0 (OD)"}
-            ],
-            "lab_results": lab_results if lab_results else [
-                {"test_name": "Hemoglobin (Hb)", "value": "11.2", "unit": "g/dL", "reference_range": "13.5 - 17.5", "abnormal": True, "category": "Hematology"},
-                {"test_name": "Fasting Blood Sugar", "value": "168", "unit": "mg/dL", "reference_range": "70 - 100", "abnormal": True, "category": "Biochemistry"},
-                {"test_name": "HbA1c", "value": "8.4", "unit": "%", "reference_range": "< 5.7", "abnormal": True, "category": "Biochemistry"}
-            ]
-        }
+        return {"diagnoses": diagnoses, "medications": medications, "lab_results": lab_results}
 
 medical_extractor = MedicalExtractor()

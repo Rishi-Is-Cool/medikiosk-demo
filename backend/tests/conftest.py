@@ -2,6 +2,12 @@
 MediKiosk Backend — Pytest Configuration & Fixtures
 Uses a dedicated test SQLite database to prevent test data bleeding into development DB.
 """
+import os
+
+# Synthetic OCR is fixture data only; production uploads must report provider
+# unavailability rather than invent clinical content.
+os.environ["MEDIKIOSK_USE_SYNTHETIC_OCR_FIXTURES"] = "1"
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -39,8 +45,8 @@ def setup_test_database():
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
+    test_engine.dispose()
     # Clean up test DB file
-    import os
     if os.path.exists("./test_medikiosk.db"):
         os.remove("./test_medikiosk.db")
 

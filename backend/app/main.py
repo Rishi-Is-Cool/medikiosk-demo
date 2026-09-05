@@ -16,7 +16,7 @@ except ImportError:
     pass
 
 from app.database.connection import engine, Base
-from app.api import auth, patients, interview, documents, summary, fhir_abdm, admin
+from app.api import auth, patients, interview, documents, summary, fhir_abdm, admin, integration
 
 # ─── Database Initialization ──────────────────────────────────────────────────
 @asynccontextmanager
@@ -70,6 +70,8 @@ app.include_router(documents.router)
 app.include_router(summary.router)
 app.include_router(fhir_abdm.router)
 app.include_router(admin.router)
+app.include_router(integration.kiosk_router)
+app.include_router(integration.doctor_router)
 
 
 # ─── Root & Health Check Endpoints ───────────────────────────────────────────
