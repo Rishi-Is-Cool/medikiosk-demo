@@ -1,0 +1,10 @@
+# Python runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local development/test state
+*.db
+backend/data/uploads/
+backend/data/sample_documents/
+data/
