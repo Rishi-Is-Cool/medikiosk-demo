@@ -265,6 +265,35 @@ class PhysicianSnapshot(Base):
     generated_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
 
+class DoctorProfile(Base):
+    __tablename__ = "doctor_profiles"
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    initials = Column(String, nullable=True)
+    qualifications = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    registration = Column(String, nullable=True)
+    practitioner_type = Column(String, default="allopathy", nullable=False)
+    clinic_name = Column(String, nullable=True)
+    tagline = Column(String, nullable=True)
+    slogan = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    department = Column(String, nullable=True)
+    languages = Column(JSON, default=list, nullable=False)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+
+class AdviceLibraryEntry(Base):
+    __tablename__ = "advice_library_entries"
+    id = Column(Integer, primary_key=True)
+    advice_id = Column(String, unique=True, index=True, nullable=False)
+    kind = Column(String, nullable=False)  # pathya / apathya
+    text = Column(String, nullable=False)
+    text_hi = Column(String, nullable=True)
+    used_count = Column(Integer, default=0, nullable=False)
+
+
 class LedgerEntry(Base):
     __tablename__ = "ledger_entries"
     id = Column(Integer, primary_key=True)

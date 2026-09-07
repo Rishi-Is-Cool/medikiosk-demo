@@ -4,6 +4,7 @@ No service in this module diagnoses or routes clinical questions using an LLM.
 """
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
@@ -109,6 +110,19 @@ def add_timeline_event(db: Session, patient_id: str, encounter_id: Optional[str]
     db.add(TimelineEvent(event_id=ref("evt"), patient_id=patient_id, encounter_id=encounter_id, event_date=now(),
                          event_type=event_type, summary=summary, source_type=source_type, source_id=source_id,
                          details=details or {}))
+
+
+def parse_follow_up_days(text: Optional[str]) -> Optional[int]:
+    """Best-effort: pull 'N day(s)/week(s)/month(s)' out of a doctor's free-text
+    follow-up note. Returns None when the text doesn't contain a parseable duration
+    rather than guessing — a report with a gap is more honest than a wrong date."""
+    if not text:
+        return None
+    match = re.search(r"(\d+)\s*(day|week|month)", text.lower())
+    if not match:
+        return None
+    n, unit = int(match.group(1)), match.group(2)
+    return n * {"day": 1, "week": 7, "month": 30}[unit]
 
 
 def source_for_fact(fact: ClinicalFact) -> Dict[str, Any]:

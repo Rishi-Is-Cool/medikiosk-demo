@@ -12,14 +12,17 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session, joinedload
 
-from app.ai.vision_pipeline import extract_and_normalize
+from app.ai.vision_pipeline import extract_and_normalize, extract_identity
+from app.ai.clinical_extraction import extract_from_transcript
+from app.services.ayush_snapshot import build_ayush_block
 from app.database.connection import get_db
-from app.database.schemas import (ClinicalAlert, ClinicalFact, ConsentRecord, Document, DocumentExtraction,
-    Encounter, FactProvenance, KioskSession, LedgerEntry, Patient, PhysicianSnapshot, TimelineEvent, Transcript, UploadSession)
+from app.database.schemas import (AdviceLibraryEntry, ClinicalAlert, ClinicalFact, ConsentRecord, Document,
+    DocumentExtraction, DoctorProfile, Encounter, FactProvenance, KioskSession, LedgerEntry, Patient,
+    PhysicianSnapshot, TimelineEvent, Transcript, UploadSession)
 from app.models.pydantic_models import (ConsentSubmission, DoctorQuestionRequest, LedgerRequest, RegistrationRequest,
     StartIntakeRequestV2, SubmitIntakeAnswerRequest)
-from app.services.integration import (add_timeline_event, create_fact, kiosk_question, now, persist_answer,
-    persist_red_flags, priority_state, ref, require_session, source_for_fact)
+from app.services.integration import (add_timeline_event, create_fact, kiosk_question, now, parse_follow_up_days,
+    persist_answer, persist_red_flags, priority_state, ref, require_session, source_for_fact)
 from app.utils.security import decode_token
 from app.ai.whisper_provider import SpeechUnavailable, whisper_provider
 
@@ -72,6 +75,17 @@ def record_consent(request: ConsentSubmission, db: Session = Depends(get_db)):
                             audio_explanation_played=request.audio_explanation_played)
     db.add(consent); session.patient.consent_granted = bool(request.granted); db.commit()
     return {"consent_id": consent.consent_id, "accepted_at": consent.accepted_at.isoformat() + "Z"}
+
+
+@kiosk_router.post("/patient/scan-identity")
+async def scan_identity(identity_method: str = Form(...), image: UploadFile = File(...)):
+    """Photo of an ABHA/Aadhaar card in, best-effort name + ID number out.
+    Never verifies identity against anything — the patient can correct it."""
+    content = await image.read()
+    if not content:
+        raise HTTPException(422, "An identity photo is required")
+    result = extract_identity(content, image.content_type or "image/jpeg")
+    return {"identity_method": identity_method, "identifier": result.get("identifier"), "name": result.get("name")}
 
 
 @kiosk_router.get("/intake/complaints")
@@ -181,10 +195,57 @@ async def transcribe_speech(session_id: str = Form(...), question_id: str = Form
         provenance.source_id = transcript.transcript_id
         provenance.locator = {"answer_id": answer.answer_id, "question_id": question_id}
     flags = persist_red_flags(db, encounter, transcript.text)
+
+    # Optional: structured chief-complaint/symptom/history extraction from the
+    # free-text transcript (Gemini). Only runs when GEMINI_API_KEY is set;
+    # returns None otherwise, so the deterministic intake flow is unaffected.
+    structured = extract_from_transcript(text=transcript.text, language=transcript.language, patient_id=encounter.patient_id)
+    if structured:
+        for symptom in structured.get("symptoms") or []:
+            if symptom.get("negated"):
+                continue
+            name = symptom.get("normalized_name") or symptom.get("name")
+            if name:
+                create_fact(db, patient_id=encounter.patient_id, encounter_id=encounter.encounter_id, fact_type="symptom",
+                            raw_value=name, source_type="transcript", source_id=transcript.transcript_id,
+                            confidence=symptom.get("confidence"),
+                            details={"site": symptom.get("site"), "duration": symptom.get("duration"), "severity": symptom.get("severity")})
+        for condition in structured.get("medical_history") or []:
+            name = condition.get("normalized_name") or condition.get("name")
+            if name:
+                create_fact(db, patient_id=encounter.patient_id, encounter_id=encounter.encounter_id, fact_type="condition",
+                            raw_value=name, source_type="transcript", source_id=transcript.transcript_id)
+        for medication in structured.get("medications") or []:
+            if medication.get("name"):
+                create_fact(db, patient_id=encounter.patient_id, encounter_id=encounter.encounter_id, fact_type="medication",
+                            raw_value=medication["name"], source_type="transcript", source_id=transcript.transcript_id,
+                            details={"dose": medication.get("dose"), "frequency": medication.get("frequency")})
+        for allergy in structured.get("allergies") or []:
+            if allergy.get("substance"):
+                create_fact(db, patient_id=encounter.patient_id, encounter_id=encounter.encounter_id, fact_type="allergy",
+                            raw_value=allergy["substance"], source_type="transcript", source_id=transcript.transcript_id,
+                            details={"reaction": allergy.get("reaction")})
+        cc = structured.get("chief_complaint")
+        if cc and cc.get("name") and not encounter.chief_complaint:
+            encounter.chief_complaint = cc.get("normalized_name") or cc["name"]
+
     db.commit()
     return {"transcript_id": transcript.transcript_id, "answer_id": answer.answer_id, "transcript": transcript.text,
             "language": transcript.language, "confidence": transcript.confidence or 0.0,
             "duration_ms": transcript.duration_ms or 0, "priority": priority_state(flags)}
+
+
+@kiosk_router.post("/speech/synthesize")
+def synthesize_speech(body: Dict[str, str]):
+    """Text-to-speech for question/instruction prompts.
+
+    No TTS provider is configured in this deployment (a real gap — see the
+    project's known-gaps notes). The frontend's contract already treats a
+    null audio_url as a valid answer meaning 'no server audio available' and
+    falls back to the browser's own speech synthesis, so this stays honest
+    rather than fabricating audio support that doesn't exist.
+    """
+    return {"audio_url": None}
 
 
 @kiosk_router.post("/documents/upload-session")
@@ -231,6 +292,11 @@ async def upload_from_phone(token: str, file: UploadFile = File(...), db: Sessio
                               payload={"diagnoses": extracted["diagnoses"], "medications": extracted["medications"], "labs": extracted["lab_results"], "error": ocr.get("error")}))
     for diagnosis in extracted["diagnoses"]: create_fact(db, patient_id=session.patient_id, encounter_id=encounter.encounter_id if encounter else None, fact_type="condition", raw_value=diagnosis, source_type="document", source_id=document_id)
     for medication in extracted["medications"]: create_fact(db, patient_id=session.patient_id, encounter_id=encounter.encounter_id if encounter else None, fact_type="medication", raw_value=medication.get("name", "Medication"), source_type="document", source_id=document_id, details=medication)
+    for lab in extracted["lab_results"]:
+        create_fact(db, patient_id=session.patient_id, encounter_id=encounter.encounter_id if encounter else None, fact_type="investigation",
+                    raw_value=lab.get("test_name", "Lab result"), source_type="document", source_id=document_id,
+                    details={"value": lab.get("value"), "unit": lab.get("unit"), "reference_range": lab.get("reference_range"),
+                             "abnormal": lab.get("abnormal"), "interpretation": lab.get("interpretation")})
     add_timeline_event(db, session.patient_id, encounter.encounter_id if encounter else None, "document", f"Uploaded {kind.replace('_', ' ')}", "document", document_id)
     upload.document_ids = [*(upload.document_ids or []), document_id]; upload.status = "complete"; db.commit()
     return {"document_id": document_id, "file_name": document.file_name, "size_bytes": len(content), "status": extraction_status, "doc_type": kind, "received_at": document.created_at.isoformat() + "Z"}
@@ -242,6 +308,20 @@ def _doctor(payload: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
     return data
 
 
+def _lab_flag(details: Dict[str, Any]) -> Any:
+    interpretation = (details.get("interpretation") or "").lower()
+    if "low" in interpretation:
+        return "low"
+    if any(term in interpretation for term in ("high", "elevat", "diabetic")):
+        return "high"
+    abnormal = details.get("abnormal")
+    if abnormal is True:
+        return "high"
+    if abnormal is False:
+        return "normal"
+    return None
+
+
 def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
     patient = encounter.patient; facts = db.query(ClinicalFact).options(joinedload(ClinicalFact.provenance)).filter(ClinicalFact.patient_id == patient.patient_id).all()
     by_type = lambda typ: [f for f in facts if f.fact_type == typ]
@@ -251,6 +331,15 @@ def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
     docs = db.query(Document).filter(Document.patient_id == patient.patient_id).all()
     answer_facts = by_type("intake_answer")
     hpi_items = [{"key": f.details.get("question_id", f.fact_id), "label": f.details.get("question_id", "Intake response"), "value": f.raw_value, "source": src(f), "status": f.status} for f in answer_facts]
+    investigation_items = [{"fact_id": f.fact_id, "test": f.raw_value, "value": (f.details or {}).get("value"),
+                             "unit": (f.details or {}).get("unit"), "reference_range": (f.details or {}).get("reference_range"),
+                             "flag": _lab_flag(f.details or {}), "dated": f.recorded_at.strftime("%Y-%m-%d") if f.recorded_at else None,
+                             "source": src(f), "status": f.status, "alert_ids": []} for f in by_type("investigation")]
+    previous_encounter = (db.query(Encounter)
+                           .filter(Encounter.patient_id == patient.patient_id, Encounter.encounter_id != encounter.encounter_id, Encounter.status == "finalized")
+                           .order_by(Encounter.finalized_at.desc()).first())
+    ayush_block = build_ayush_block(encounter)
+    ayush_status = "present" if ayush_block else ("not_captured" if encounter.intake_framework != "ayush" else "in_progress")
     snap = {"encounter_id": encounter.encounter_id, "generated_at": now().isoformat() + "Z", "status": encounter.status,
             "intake_framework": encounter.intake_framework, "patient": {"patient_id": patient.patient_id, "name": patient.name, "age_years": patient.age, "sex": patient.gender.lower(), "abha_id": patient.abha_id, "preferred_language": patient.language, "department": "OPD"},
             "alerts": [{"alert_id": a.alert_id, "severity": a.severity, "rule": a.rule, "headline": a.headline, "detail": a.detail, "conflicting_sources": a.sources} for a in alerts],
@@ -258,9 +347,15 @@ def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
                          "hpi": {"label": "History of present illness", "framework": "SOCRATES", "items": hpi_items},
                          "past_medical_surgical": {"label": "Past medical and surgical", "items": [{"fact_id": f.fact_id, "value": f.normalized_value or f.raw_value, "normalized": None, "source": src(f), "status": f.status} for f in by_type("condition")]},
                          "drug_and_allergy": {"label": "Drug and allergy", "medications": [{"fact_id": f.fact_id, "value": f.raw_value, "source": src(f), "status": f.status} for f in by_type("medication")], "allergies": [{"fact_id": f.fact_id, "value": f.raw_value, "reaction": f.details.get("reaction"), "source": src(f), "status": f.status, "alert_ids": []} for f in by_type("allergy")]},
-                         "family_history": {"label": "Family history", "collapsed_by_default": True, "count": 0, "items": []}, "personal_history": {"label": "Personal history", "collapsed_by_default": True, "count": 0, "items": []}, "review_of_systems": {"label": "Review of systems", "collapsed_by_default": True, "systems_reviewed": 0, "positive_count": 0, "items": []}},
+                         "family_history": {"label": "Family history", "collapsed_by_default": True, "count": 0, "items": []}, "personal_history": {"label": "Personal history", "collapsed_by_default": True, "count": 0, "items": []}, "review_of_systems": {"label": "Review of systems", "collapsed_by_default": True, "systems_reviewed": 0, "positive_count": 0, "items": []},
+                         "prior_investigations": {"label": "Prior investigations", "items": investigation_items}},
             "trend": {"label": "Timeline", "dates": [e.event_date.strftime("%d %b") for e in events if e.event_date], "groups": [{"label": "Clinical events", "rows": [{"key": e.event_id, "label": e.event_type, "values": [e.summary], "flags": [None], "ref": "—", "source": {"type": e.source_type, "id": e.source_id}} for e in events]}]},
-            "ayush": None, "ayush_status": "not_captured", "last_visit": None, "documents": [{"document_id": d.document_id, "doc_type": d.document_type, "dated": d.document_date, "title": d.file_name, "page_count": 1} for d in docs]}
+            "ayush": ayush_block, "ayush_status": ayush_status,
+            "last_visit": ({"encounter_id": previous_encounter.encounter_id,
+                            "date": previous_encounter.finalized_at.strftime("%Y-%m-%d") if previous_encounter.finalized_at else None,
+                            "summary": previous_encounter.chief_complaint or "Previous encounter",
+                            "source": {"type": "prior_encounter", "id": previous_encounter.encounter_id}} if previous_encounter else None),
+            "documents": [{"document_id": d.document_id, "doc_type": d.document_type, "dated": d.document_date, "title": d.file_name, "page_count": 1} for d in docs]}
     db.add(PhysicianSnapshot(snapshot_id=ref("snap"), encounter_id=encounter.encounter_id, payload=snap)); db.commit()
     return snap
 
@@ -277,6 +372,92 @@ def doctor_snapshot(encounter_id: str, _: Dict[str, Any] = Depends(_doctor), db:
     encounter = db.query(Encounter).options(joinedload(Encounter.patient)).filter(Encounter.encounter_id == encounter_id).first()
     if not encounter: raise HTTPException(404, "Encounter not found")
     return _snapshot(db, encounter)
+
+
+@doctor_router.get("/encounters/{encounter_id}/carry-forward")
+def carry_forward(encounter_id: str, _: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+    """What the patient's previous finalized encounter left behind, offered for reuse."""
+    encounter = db.query(Encounter).filter(Encounter.encounter_id == encounter_id).first()
+    if not encounter: raise HTTPException(404, "Encounter not found")
+    previous = (db.query(Encounter)
+                .filter(Encounter.patient_id == encounter.patient_id, Encounter.encounter_id != encounter_id, Encounter.status == "finalized")
+                .order_by(Encounter.finalized_at.desc()).first())
+    if not previous:
+        return {"from_encounter": None, "from_date": None, "groups": []}
+    facts = db.query(ClinicalFact).filter(ClinicalFact.encounter_id == previous.encounter_id).all()
+    by_type = lambda typ: [f for f in facts if f.fact_type == typ]
+    ledger = db.query(LedgerEntry).filter(LedgerEntry.encounter_id == previous.encounter_id).order_by(LedgerEntry.created_at.desc()).first()
+    groups = []
+    if previous.chief_complaint:
+        groups.append({"key": "symptoms", "label": "Symptoms and findings", "value": previous.chief_complaint})
+    conditions = [f.raw_value for f in by_type("condition")]
+    if conditions: groups.append({"key": "diagnosis", "label": "Diagnosis", "value": "; ".join(conditions)})
+    medications = [f.raw_value for f in by_type("medication")]
+    if medications: groups.append({"key": "medicines", "label": "Medicines", "value": "; ".join(medications)})
+    investigations = [f.raw_value for f in by_type("investigation")]
+    if investigations: groups.append({"key": "investigations", "label": "Investigations", "value": "; ".join(investigations)})
+    if ledger and ledger.advice:
+        advice_text = "; ".join(a.get("text", str(a)) if isinstance(a, dict) else str(a) for a in ledger.advice)
+        if advice_text: groups.append({"key": "advice", "label": "Advice", "value": advice_text})
+    return {"from_encounter": previous.encounter_id,
+            "from_date": previous.finalized_at.strftime("%Y-%m-%d") if previous.finalized_at else None,
+            "groups": groups}
+
+
+@doctor_router.get("/advice-library")
+def advice_library(db: Session = Depends(get_db)):
+    entries = db.query(AdviceLibraryEntry).order_by(AdviceLibraryEntry.used_count.desc()).all()
+    return [{"id": e.advice_id, "kind": e.kind, "text": e.text, "hi": e.text_hi, "used_count": e.used_count} for e in entries]
+
+
+@doctor_router.get("/reports/due-back")
+def due_back(_: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+    """Patients with a doctor-recorded follow-up due, most overdue first.
+    Populated from ledger entries — real, not simulated — but only where the
+    doctor's free-text follow-up note contains a parseable duration."""
+    entries = db.query(LedgerEntry).options(joinedload(LedgerEntry.encounter).joinedload(Encounter.patient)).filter(LedgerEntry.follow_up_required == True).order_by(LedgerEntry.created_at.desc()).all()
+    today = now().date()
+    rows, seen_patients = [], set()
+    for entry in entries:
+        encounter = entry.encounter
+        if not encounter or encounter.patient_id in seen_patients:
+            continue
+        days = parse_follow_up_days(entry.follow_up_timeframe)
+        if days is None:
+            continue
+        seen_patients.add(encounter.patient_id)
+        due_on = entry.created_at.date() + timedelta(days=days)
+        patient = encounter.patient
+        rows.append({"patient_id": patient.patient_id, "name": patient.name, "age_years": patient.age, "sex": patient.gender.lower(),
+                     "due_on": due_on.isoformat(), "days_overdue": (today - due_on).days, "reason": entry.follow_up_timeframe,
+                     "last_seen": encounter.finalized_at.strftime("%Y-%m-%d") if encounter.finalized_at else None,
+                     "contact": "ABHA-linked app" if patient.abha_id else "Phone"})
+    return sorted(rows, key=lambda r: r["days_overdue"], reverse=True)
+
+
+def _profile_payload(p: DoctorProfile) -> Dict[str, Any]:
+    return {"doctor_id": f"doc_{p.id}", "name": p.name, "initials": p.initials, "qualifications": p.qualifications,
+            "title": p.title, "registration": p.registration, "practitioner_type": p.practitioner_type,
+            "clinic_name": p.clinic_name, "tagline": p.tagline, "slogan": p.slogan, "address": p.address,
+            "department": p.department, "languages": p.languages or []}
+
+
+@doctor_router.get("/me")
+def get_doctor_profile(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+    profile = db.query(DoctorProfile).filter(DoctorProfile.username == clinician.get("sub")).first()
+    if not profile: raise HTTPException(404, "No profile on file for this account")
+    return _profile_payload(profile)
+
+
+@doctor_router.put("/me")
+def update_doctor_profile(update: Dict[str, Any], clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+    profile = db.query(DoctorProfile).filter(DoctorProfile.username == clinician.get("sub")).first()
+    if not profile: raise HTTPException(404, "No profile on file for this account")
+    for field in ("name", "initials", "qualifications", "title", "registration", "practitioner_type",
+                  "clinic_name", "tagline", "slogan", "address", "department", "languages"):
+        if field in update: setattr(profile, field, update[field])
+    db.commit(); db.refresh(profile)
+    return _profile_payload(profile)
 
 
 @doctor_router.get("/documents/{document_id}")
@@ -309,6 +490,10 @@ def save_ledger(encounter_id: str, request: LedgerRequest, clinician: Dict[str, 
                         doctor_rationale=request.doctor_rationale, advice=request.advice, follow_up_required=request.follow_up_required,
                         follow_up_timeframe=request.follow_up_timeframe)
     db.add(entry); db.flush(); add_timeline_event(db, encounter.patient_id, encounter_id, "clinical_decision", "Doctor-authored ledger entry", "clinician", entry.ledger_id)
+    advice_ids = [a.get("id") for a in request.advice if isinstance(a, dict) and a.get("id")]
+    if advice_ids:
+        db.query(AdviceLibraryEntry).filter(AdviceLibraryEntry.advice_id.in_(advice_ids)).update(
+            {AdviceLibraryEntry.used_count: AdviceLibraryEntry.used_count + 1}, synchronize_session=False)
     db.commit(); return {"ok": True, "encounter_id": encounter_id, "ledger_id": entry.ledger_id}
 
 

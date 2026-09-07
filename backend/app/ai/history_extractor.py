@@ -303,7 +303,7 @@ class HistoryExtractor:
                 answers.get("ayush_q9_ahara_shakti", ""), answers.get("ayush_q9_ahara_shakti", "Not assessed")
             ),
             "Vaya_Ahara_Vihara": vaya_map.get(
-                answers.get("ayush_q10_vaya_ahara_vihara", ""), answers.get("ayush_q10_vaya_ahara_vihara", "Not assessed")
+                answers.get("ayush_q11_vaya_ahara_vihara", ""), answers.get("ayush_q11_vaya_ahara_vihara", "Not assessed")
             )
         }
 

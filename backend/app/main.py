@@ -27,7 +27,8 @@ try:
 except ImportError:
     pass
 
-from app.database.connection import engine, Base
+from app.database.connection import engine, Base, SessionLocal
+from app.database.seed import seed_reference_data
 from app.api import auth, patients, interview, documents, summary, fhir_abdm, admin, integration
 
 # ─── Database Initialization ──────────────────────────────────────────────────
@@ -35,6 +36,11 @@ from app.api import auth, patients, interview, documents, summary, fhir_abdm, ad
 async def lifespan(app: FastAPI):
     """Create all DB tables on startup (no Alembic required for SQLite dev)."""
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_reference_data(db)
+    finally:
+        db.close()
     yield
     # Clean shutdown hooks can go here
 

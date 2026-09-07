@@ -11,6 +11,7 @@ import os
 from typing import Any, Dict
 
 from ml_backend.services.vision_extract import vision_extraction_service
+from ml_backend.services.llm_client import get_llm_client
 from ml_backend.config import settings
 
 logger = logging.getLogger(__name__)
@@ -99,9 +100,36 @@ def extract_and_normalize(
                 "unit": l.unit,
                 "reference_range": l.reference_range,
                 "abnormal": l.abnormal,
+                "interpretation": l.interpretation,
                 "category": "Blood Test",
             }
             for l in extraction.lab_results
         ],
         "normalized_facts": result.normalized_facts,
     }
+
+
+def extract_identity(image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
+    """Best-effort OCR of an ABHA/Aadhaar card photo — name + ID number only.
+
+    Never used to verify identity against anything (the kiosk build spec is
+    explicit about this); it just fills a form field the patient can correct.
+    Reuses the same vision LLM client as document extraction with a distinct
+    prompt. Degrades cleanly with no result when no live provider is
+    configured — the mock client below has no notion of an identity card.
+    """
+    prompt = (
+        "This is a photo of an Indian patient identity card (ABHA health ID "
+        "or Aadhaar). Extract the printed full name and the ID number exactly "
+        "as printed (digits only for the number, no spaces or dashes). "
+        'Respond as JSON: {"name": string or null, "identifier": string or null}.'
+    )
+    client = get_llm_client()
+    try:
+        raw = client.extract_document_vision(
+            image_bytes=image_bytes, mime_type=mime_type, prompt=prompt, document_id="identity_scan"
+        )
+    except Exception as exc:
+        logger.warning("Identity scan failed: %s", exc)
+        return {"name": None, "identifier": None}
+    return {"name": raw.get("name"), "identifier": raw.get("identifier")}
