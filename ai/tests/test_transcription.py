@@ -127,7 +127,36 @@ class TestSuccessfulTranscription:
         assert result.language == "hi"
         # Verify language was actually forwarded to the model
         provider._model.transcribe.assert_called_once_with(
-            str(audio_file), language="hi", beam_size=5,
+            str(audio_file),
+            language="hi",
+            beam_size=5,
+            initial_prompt=None,
+            vad_filter=True,
+        )
+
+    @patch(WHISPER_MODEL_PATCH)
+    def test_initial_prompt_forwarding(self, mock_cls, tmp_path):
+        """Test initial_prompt is forwarded to the transcribe call."""
+        mock_cls.return_value = MagicMock()
+        custom_prompt = "Medical consultation in Hinglish"
+        provider = FasterWhisperProvider(model_size="tiny", device="cpu", initial_prompt=custom_prompt)
+
+        audio_file = tmp_path / "prompt_test.wav"
+        audio_file.write_bytes(b"fake audio")
+
+        segments = [_make_segment("fever")]
+        info = _make_info(language="en", duration=1.0)
+        provider._model.transcribe.return_value = (iter(segments), info)
+
+        result = provider.transcribe(str(audio_file))
+
+        assert result.success is True
+        provider._model.transcribe.assert_called_once_with(
+            str(audio_file),
+            language=None,
+            beam_size=5,
+            initial_prompt=custom_prompt,
+            vad_filter=True,
         )
 
 
@@ -155,7 +184,11 @@ class TestAutoDetection:
         assert result.language == "es"
         # language=None should be passed through
         provider._model.transcribe.assert_called_once_with(
-            str(audio_file), language=None, beam_size=5,
+            str(audio_file),
+            language=None,
+            beam_size=5,
+            initial_prompt=None,
+            vad_filter=True,
         )
 
 
