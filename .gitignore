@@ -1,13 +1,37 @@
-# Python runtime caches
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
+
+# Environment variables & secrets
 .env
-.venv/
-venv/
+.env.*
+!.env.example
+
+# Operating System Files
+.DS_Store
+Thumbs.db
 
 # Local development/test state
 *.db
+data/
 backend/data/uploads/
 backend/data/sample_documents/
-data/
+ml_backend/data/sample_outputs/
+sample_uploads/
+ml_backend/sample_documents/*.jpg
+ml_backend/sample_documents/*.png
+test_uploaded_case.py
+*.log
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Virtual Environments
+venv/
+.venv/
+env/
