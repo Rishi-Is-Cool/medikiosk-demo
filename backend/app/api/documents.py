@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.database.schemas import Patient, Document, LabResult
 from app.models.pydantic_models import DocumentExtractResponse
-from app.ai.ocr import ocr_engine
-from app.ai.medical_extractor import medical_extractor
+from app.ai.vision_pipeline import extract_and_normalize
 
 router = APIRouter(prefix="/api/documents", tags=["Medical Document Digitization & OCR"])
 
@@ -35,20 +34,25 @@ async def upload_medical_document(
     with open(file_path, "wb") as f:
         f.write(file_content)
 
-    # Run OCR & Medical Extraction Pipeline
-    ocr_res = ocr_engine.extract_text(file_path, document_type=document_type)
-    ocr_text = ocr_res["ocr_text"]
-
-    extracted = medical_extractor.extract_entities(ocr_text)
+    # Run Vision Intelligence Pipeline (document perception, terminology
+    # normalization, deterministic lab range validation)
+    document_id = f"DOC-{doc_uuid[:8].upper()}"
+    extracted = extract_and_normalize(
+        file_path,
+        document_type=document_type,
+        patient_id=patient_id,
+        document_id=document_id,
+    )
+    ocr_text = extracted["ocr_text"]
 
     # Store document record in DB
     db_doc = Document(
-        document_id=f"DOC-{doc_uuid[:8].upper()}",
+        document_id=document_id,
         patient_id=patient_id,
         file_name=file.filename,
         file_path=file_path,
         document_type=document_type,
-        document_date=ocr_res["extracted_date"],
+        document_date=extracted["extracted_date"],
         ocr_text=ocr_text
     )
     db.add(db_doc)

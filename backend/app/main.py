@@ -3,15 +3,27 @@ MediKiosk AI Clinical History Platform — FastAPI Application Entry Point
 Registers all API routers, sets up CORS, loads environment config, and creates DB tables.
 """
 import os
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Load .env file if present (development mode)
+# The AI layer (ai/) and the document-intelligence service (ml_backend/) live
+# as siblings of backend/, not inside it, so they aren't on sys.path when this
+# app is launched with `cd backend && uvicorn app.main:app`. Add the project
+# root so `import ai...` / `import ml_backend...` resolve regardless of cwd.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Load .env file if present (development mode) — checks the project root
+# first so a single shared .env covers backend/ and ml_backend/ alike.
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(PROJECT_ROOT / ".env")
+    load_dotenv()  # also pick up backend/.env if present (overrides nothing already set)
 except ImportError:
     pass
 

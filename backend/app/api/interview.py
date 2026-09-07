@@ -16,6 +16,7 @@ from app.models.pydantic_models import (
 from app.ai.question_engine import question_engine
 from app.ai.speech_to_text import stt_engine
 from app.ai.red_flag_detector import red_flag_detector
+from app.ai.clinical_extraction import extract_from_transcript
 
 router = APIRouter(prefix="/api/interview", tags=["Conversational Multimodal History Engine"])
 
@@ -102,6 +103,15 @@ async def process_voice_input(
     red_flags = red_flag_detector.check_red_flags(stt_result["transcript"])
     is_emergency = any(rf["priority"] == "P1_CRITICAL" for rf in red_flags)
 
+    # Optional: structured chief-complaint/symptom extraction from the free-text
+    # narration (Gemini). Only runs when GEMINI_API_KEY is configured; returns
+    # None otherwise so the deterministic SOCRATES/AYUSH flow is unaffected.
+    structured_extraction = extract_from_transcript(
+        text=stt_result["transcript"],
+        language=stt_result["language"],
+        patient_id=patient_id,
+    )
+
     return {
         "patient_id": patient_id,
         "transcript": stt_result["transcript"],
@@ -110,7 +120,8 @@ async def process_voice_input(
         "engine": stt_result.get("engine", "MediKiosk ASR"),
         "red_flag_detected": len(red_flags) > 0,
         "is_emergency": is_emergency,
-        "red_flags": red_flags
+        "red_flags": red_flags,
+        "structured_extraction": structured_extraction
     }
 
 

@@ -12,8 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session, joinedload
 
-from app.ai.medical_extractor import medical_extractor
-from app.ai.ocr import ocr_engine
+from app.ai.vision_pipeline import extract_and_normalize
 from app.database.connection import get_db
 from app.database.schemas import (ClinicalAlert, ClinicalFact, ConsentRecord, Document, DocumentExtraction,
     Encounter, FactProvenance, KioskSession, LedgerEntry, Patient, PhysicianSnapshot, TimelineEvent, Transcript, UploadSession)
@@ -222,8 +221,8 @@ async def upload_from_phone(token: str, file: UploadFile = File(...), db: Sessio
     suffix = Path(file.filename or "document").suffix.lower() or ".bin"; document_id = ref("doc")
     safe_path = UPLOAD_ROOT / f"{document_id}{suffix}"; safe_path.write_bytes(content)
     kind = "lab_report" if "lab" in (file.filename or "").lower() else "prescription"
-    ocr = ocr_engine.extract_text(str(safe_path), kind)
-    extracted = medical_extractor.extract_entities(ocr["ocr_text"]) if ocr.get("success") else {"diagnoses": [], "medications": [], "lab_results": []}
+    ocr = extract_and_normalize(str(safe_path), document_type=kind, patient_id=session.patient_id, document_id=document_id)
+    extracted = {"diagnoses": ocr["diagnoses"], "medications": ocr["medications"], "lab_results": ocr["lab_results"]} if ocr.get("success") else {"diagnoses": [], "medications": [], "lab_results": []}
     document = Document(document_id=document_id, patient_id=session.patient_id, file_name=Path(file.filename or "document").name,
                         file_path=str(safe_path), document_type=kind, document_date=ocr.get("extracted_date"), ocr_text=ocr["ocr_text"])
     db.add(document); db.flush()
