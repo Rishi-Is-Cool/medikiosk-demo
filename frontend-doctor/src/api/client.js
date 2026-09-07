@@ -20,8 +20,32 @@ const LATENCY_MS = 220; // keep the loading states honest during development
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* There is no login screen yet — a real gap, not something to fake in this
+   client. Until one exists, authenticate once with the same demo doctor
+   credentials the backend's own test suite uses, and attach the token to
+   every protected call. Replace this with a real sign-in flow. */
+let tokenPromise = null;
+async function getToken() {
+  if (USE_MOCKS) return null;
+  if (!tokenPromise) {
+    tokenPromise = fetch("/api/auth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "username=doctor_opd_101&password=doc%40MediK2026",
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`auth failed: ${res.status}`))))
+      .then((data) => data.access_token);
+  }
+  return tokenPromise;
+}
+
+async function authHeaders() {
+  const token = await getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function get(path) {
-  const res = await fetch(path, { headers: { Accept: "application/json" } });
+  const res = await fetch(path, { headers: { Accept: "application/json", ...(await authHeaders()) } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
   return res.json();
 }
@@ -72,7 +96,7 @@ export async function askQuestion(encounterId, question) {
   }
   return fetch(`/api/encounters/${encounterId}/qa`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ question }),
   }).then((r) => r.json());
 }
@@ -85,7 +109,7 @@ export async function saveLedger(encounterId, entry) {
   }
   return fetch(`/api/encounters/${encounterId}/ledger`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(entry),
   }).then((r) => r.json());
 }
@@ -152,7 +176,7 @@ export async function saveDoctorProfile(profile) {
   }
   return fetch("/api/me", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(profile),
   }).then((r) => r.json());
 }
