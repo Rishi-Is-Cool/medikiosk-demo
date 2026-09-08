@@ -22,8 +22,9 @@ const SECTIONS = [
   { key: "app", label: "About" },
 ];
 
-export default function Settings({ showAyush, onToggleAyush, onBack }) {
+export default function Settings({ showAyush, onToggleAyush, practitionerType, onBack, onLogout }) {
   const [active, setActive] = useState("profile");
+  const isAyurveda = practitionerType === "ayurveda";
 
   return (
     <div className="settings">
@@ -32,6 +33,9 @@ export default function Settings({ showAyush, onToggleAyush, onBack }) {
           ← Home
         </button>
         <h1 className="set-title">Settings</h1>
+        <button type="button" className="btn" style={{ marginLeft: "auto" }} onClick={onLogout}>
+          Log out
+        </button>
       </header>
 
       <div className="set-body">
@@ -55,21 +59,29 @@ export default function Settings({ showAyush, onToggleAyush, onBack }) {
           {active === "practitioner" ? (
             <Section
               title="Practitioner view"
-              note="Defaults from your practitioner type on the HPR register. Changing it affects what the server sends you, not what is stored."
+              note={`Your account is registered as ${isAyurveda ? "Ayurveda / AYUSH" : "General Medicine"} — set at signup, and not editable here. Patients are only ever routed to a doctor of their chosen department, so this can't change which patients you see, only how their record is displayed.`}
             >
-              <Row
-                label="Show Ayurvedic assessment"
-                help="Dashavidha pariksha, Prakriti and Vikriti. Suppressed server-side when off — the data is never sent to this browser."
-              >
-                <label className="switch">
-                  <input type="checkbox" checked={showAyush} onChange={(e) => onToggleAyush(e.target.checked)} />
-                  <span>{showAyush ? "Shown" : "Hidden"}</span>
-                </label>
-              </Row>
-              <p className="set-limit">
-                This preference covers the constitutional block only. It cannot hide allergies, red flags,
-                medications, conditions or abnormal results — those are always shown to every practitioner.
-              </p>
+              {isAyurveda ? (
+                <>
+                  <Row
+                    label="Show Ayurvedic assessment"
+                    help="Dashavidha pariksha, Prakriti and Vikriti. Suppressed server-side when off — the data is never sent to this browser."
+                  >
+                    <label className="switch">
+                      <input type="checkbox" checked={showAyush} onChange={(e) => onToggleAyush(e.target.checked)} />
+                      <span>{showAyush ? "Shown" : "Hidden"}</span>
+                    </label>
+                  </Row>
+                  <p className="set-limit">
+                    This preference covers the constitutional block only. It cannot hide allergies, red flags,
+                    medications, conditions or abnormal results — those are always shown.
+                  </p>
+                </>
+              ) : (
+                <p className="set-limit">
+                  General-medicine accounts never receive AYUSH data — there's nothing here to show or hide.
+                </p>
+              )}
             </Section>
           ) : null}
 
@@ -90,10 +102,14 @@ export default function Settings({ showAyush, onToggleAyush, onBack }) {
           {active === "modules" ? (
             <Section
               title="Department modules"
-              note="Which history frameworks this deployment offers. The kiosk question tree follows the department the patient registers for."
+              note="Which history framework your account is registered for. A doctor sees exactly one — patients are routed by department and never cross into another practitioner's console."
             >
-              <Row label="Ayurveda OPD" help="Dashavidha pariksha capture, pathya/apathya advice."><span className="set-value on">Enabled</span></Row>
-              <Row label="General medicine" help="SOCRATES history, standard review of systems."><span className="set-value on">Enabled</span></Row>
+              <Row label="Ayurveda OPD" help="Dashavidha pariksha capture, pathya/apathya advice.">
+                <span className={`set-value ${isAyurveda ? "on" : ""}`}>{isAyurveda ? "Your department" : "Not your department"}</span>
+              </Row>
+              <Row label="General medicine" help="SOCRATES history, standard review of systems.">
+                <span className={`set-value ${!isAyurveda ? "on" : ""}`}>{!isAyurveda ? "Your department" : "Not your department"}</span>
+              </Row>
               <Row label="Panchakarma" help="Procedure scheduling and protocol adherence."><span className="set-value">Not enabled</span></Row>
               <Row label="Unani · Siddha · Homoeopathy" help="Each needs its own case-taking shape and vocabulary."><span className="set-value">Not enabled</span></Row>
             </Section>
@@ -104,19 +120,27 @@ export default function Settings({ showAyush, onToggleAyush, onBack }) {
               title="Terminology"
               note="Coded terms make district-level reporting fall out of the data. Free text does not — no amount of later work recovers it."
             >
-              <Row label="NAMASTE morbidity codes" help="National AYUSH Morbidity and Standardized Terminologies.">
-                <span className="set-value on">Loaded</span>
-              </Row>
-              <Row label="ICD-11 TM2 dual coding" help="Traditional Medicine Module 2, released on the WHO browser in Feb 2025.">
-                <span className="set-value on">Loaded</span>
-              </Row>
-              <Row label="WHO Standardised Terminologies for Ayurveda" help="Used for the examination frameworks and assessment axes.">
-                <span className="set-value on">Loaded</span>
-              </Row>
-              <p className="set-limit warn">
-                Codes are currently loaded from a public mirror, not the official portal. Verify against
-                namaste.ayush.gov.in before any demonstration.
-              </p>
+              {isAyurveda ? (
+                <>
+                  <Row label="NAMASTE morbidity codes" help="National AYUSH Morbidity and Standardized Terminologies.">
+                    <span className="set-value on">Loaded</span>
+                  </Row>
+                  <Row label="ICD-11 TM2 dual coding" help="Traditional Medicine Module 2, released on the WHO browser in Feb 2025.">
+                    <span className="set-value on">Loaded</span>
+                  </Row>
+                  <Row label="WHO Standardised Terminologies for Ayurveda" help="Used for the examination frameworks and assessment axes.">
+                    <span className="set-value on">Loaded</span>
+                  </Row>
+                  <p className="set-limit warn">
+                    Codes are currently loaded from a public mirror, not the official portal. Verify against
+                    namaste.ayush.gov.in before any demonstration.
+                  </p>
+                </>
+              ) : (
+                <p className="set-limit">
+                  AYUSH terminology standards (NAMASTE, ICD-11 TM2) apply to Ayurveda accounts only.
+                </p>
+              )}
             </Section>
           ) : null}
 

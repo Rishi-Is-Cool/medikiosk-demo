@@ -16,26 +16,61 @@ import Encounter from "./screens/Encounter.jsx";
 import Patients from "./screens/Patients.jsx";
 import PatientDetail from "./screens/PatientDetail.jsx";
 import Settings from "./screens/Settings.jsx";
+import Login from "./screens/Login.jsx";
+import Signup from "./screens/Signup.jsx";
 import SyncStatus from "./components/SyncStatus.jsx";
-import { fetchQueue } from "./api/client.js";
+import { fetchDoctorProfile, fetchQueue, getStoredProfile, isLoggedIn, logout } from "./api/client.js";
 
 const TITLES = {
   home: "Home",
-  clinic: "Ayurveda OPD",
+  clinic: "Clinic",
   patients: "Patients",
   patient: "Patient record",
   settings: "Settings",
 };
 
+/* Every screen but Login/Signup assumes a logged-in doctor's own specialty —
+   the console never shows Ayurveda OPD chrome to a general-medicine doctor
+   or vice versa. That's why practitioner_type drives the clinic title and
+   the AYUSH default here rather than each screen guessing at it. */
+function clinicTitle(profile) {
+  return profile?.practitioner_type === "ayurveda" ? "Ayurveda OPD" : "General Medicine OPD";
+}
+
 export default function App() {
+  const [authed, setAuthed] = useState(isLoggedIn());
+  const [authView, setAuthView] = useState("login"); // "login" | "signup", only used while logged out
+  const [doctorProfile, setDoctorProfile] = useState(getStoredProfile());
   const [view, setView] = useState("home");
   const [encounterId, setEncounterId] = useState(null);
   const [patientId, setPatientId] = useState(null);
   const [clinicTab, setClinicTab] = useState("queue");
-  const [showAyush, setShowAyush] = useState(true);
+  const [showAyush, setShowAyush] = useState(doctorProfile?.practitioner_type === "ayurveda");
   const [patients, setPatients] = useState([]);
 
   useEffect(() => {
+    function onLoggedOut() {
+      setAuthed(false);
+      setDoctorProfile(null);
+      setAuthView("login");
+    }
+    window.addEventListener("medikiosk:logged-out", onLoggedOut);
+    return () => window.removeEventListener("medikiosk:logged-out", onLoggedOut);
+  }, []);
+
+  useEffect(() => {
+    if (!authed) return;
+    let alive = true;
+    fetchDoctorProfile()
+      .then((p) => alive && setDoctorProfile(p))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [authed]);
+
+  useEffect(() => {
+    if (!authed) return;
     let alive = true;
     fetchQueue()
       .then((q) => alive && setPatients(q.patients))
@@ -43,7 +78,22 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [authed]);
+
+  function onAuthenticated(profile) {
+    setDoctorProfile(profile);
+    setShowAyush(profile?.practitioner_type === "ayurveda");
+    setAuthed(true);
+    setView("home");
+  }
+
+  if (!authed) {
+    return authView === "signup" ? (
+      <Signup onSignedUp={onAuthenticated} onGoToLogin={() => setAuthView("login")} />
+    ) : (
+      <Login onLoggedIn={onAuthenticated} onGoToSignup={() => setAuthView("signup")} />
+    );
+  }
 
   /* One definition of "back", so every screen behaves the same way. */
   const back = (() => {
@@ -70,7 +120,7 @@ export default function App() {
           <span className="applogo">MediKiosk</span>
         )}
 
-        <span className="apptitle">{TITLES[view]}</span>
+        <span className="apptitle">{view === "clinic" ? clinicTitle(doctorProfile) : TITLES[view]}</span>
 
         <nav className="appnav" aria-label="Sections">
           <button type="button" className={`navbtn ${view === "home" ? "on" : ""}`} onClick={goHome}>
@@ -129,7 +179,13 @@ export default function App() {
         ) : null}
 
         {view === "settings" ? (
-          <Settings showAyush={showAyush} onToggleAyush={setShowAyush} onBack={goHome} />
+          <Settings
+            showAyush={showAyush}
+            onToggleAyush={setShowAyush}
+            practitionerType={doctorProfile?.practitioner_type}
+            onBack={goHome}
+            onLogout={logout}
+          />
         ) : null}
 
         {view === "patients" ? (

@@ -20,34 +20,91 @@ const LATENCY_MS = 220; // keep the loading states honest during development
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* There is no login screen yet — a real gap, not something to fake in this
-   client. Until one exists, authenticate once with the same demo doctor
-   credentials the backend's own test suite uses, and attach the token to
-   every protected call. Replace this with a real sign-in flow. */
-let tokenPromise = null;
-async function getToken() {
-  if (USE_MOCKS) return null;
-  if (!tokenPromise) {
-    tokenPromise = fetch("/api/auth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "username=doctor_opd_101&password=doc%40MediK2026",
-    })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`auth failed: ${res.status}`))))
-      .then((data) => data.access_token);
+/* --- Session -------------------------------------------------------------
+   A real login/signup flow, replacing the earlier stopgap that always
+   authenticated as the demo doctor account. Token + profile are cached in
+   localStorage so a reload doesn't force a re-login; a 401 from any
+   protected call clears the session and fires "medikiosk:logged-out" so
+   App.jsx can drop back to the Login screen. In mock mode there is no
+   session to manage — the app behaves as it always has. */
+const TOKEN_KEY = "medikiosk_doctor_token";
+const PROFILE_KEY = "medikiosk_doctor_profile";
+
+export function getStoredToken() {
+  return USE_MOCKS ? null : localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredProfile() {
+  if (USE_MOCKS) return structuredClone(DOCTOR_PROFILE);
+  try {
+    return JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+  } catch {
+    return null;
   }
-  return tokenPromise;
+}
+
+export function isLoggedIn() {
+  return USE_MOCKS || Boolean(getStoredToken());
+}
+
+function storeSession(token, profile) {
+  localStorage.setItem(TOKEN_KEY, token);
+  if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+export function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(PROFILE_KEY);
+  window.dispatchEvent(new Event("medikiosk:logged-out"));
 }
 
 async function authHeaders() {
-  const token = await getToken();
+  const token = getStoredToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** Every protected fetch funnels through here so a 401 always ends the session
+ *  the same way, instead of each call handling it (or not) independently. */
+async function guarded(res) {
+  if (res.status === 401) logout();
+  return res;
+}
+
 async function get(path) {
-  const res = await fetch(path, { headers: { Accept: "application/json", ...(await authHeaders()) } });
+  const res = await guarded(await fetch(path, { headers: { Accept: "application/json", ...(await authHeaders()) } }));
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
   return res.json();
+}
+
+export async function login(username, password) {
+  const res = await fetch("/api/auth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
+  });
+  if (!res.ok) throw new Error(res.status === 401 ? "Incorrect username or password." : `Could not sign in (${res.status}).`);
+  const { access_token: token } = await res.json();
+  storeSession(token, null);
+  const profile = await fetchDoctorProfile();
+  storeSession(token, profile);
+  return profile;
+}
+
+export async function registerDoctor({ username, password, name, practitionerType, qualifications }) {
+  const res = await fetch("/api/auth/register-doctor", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, name, practitioner_type: practitionerType, qualifications: qualifications || null }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(typeof detail?.detail === "string" ? detail.detail : `Could not create the account (${res.status}).`);
+  }
+  const { access_token: token } = await res.json();
+  storeSession(token, null);
+  const profile = await fetchDoctorProfile();
+  storeSession(token, profile);
+  return profile;
 }
 
 export async function fetchQueue() {
@@ -94,11 +151,12 @@ export async function askQuestion(encounterId, question) {
       question,
     };
   }
-  return fetch(`/api/encounters/${encounterId}/qa`, {
+  const res = await guarded(await fetch(`/api/encounters/${encounterId}/qa`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ question }),
-  }).then((r) => r.json());
+  }));
+  return res.json();
 }
 
 export async function saveLedger(encounterId, entry) {
@@ -107,11 +165,12 @@ export async function saveLedger(encounterId, entry) {
     console.info("[mock] ledger entry saved", { encounterId, ...entry });
     return { ok: true, encounter_id: encounterId, ...entry };
   }
-  return fetch(`/api/encounters/${encounterId}/ledger`, {
+  const res = await guarded(await fetch(`/api/encounters/${encounterId}/ledger`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(entry),
-  }).then((r) => r.json());
+  }));
+  return res.json();
 }
 
 /* --- Docon-derived endpoints ------------------------------------------- */
@@ -174,9 +233,14 @@ export async function saveDoctorProfile(profile) {
     Object.assign(DOCTOR_PROFILE, profile);
     return structuredClone(DOCTOR_PROFILE);
   }
-  return fetch("/api/me", {
+  const res = await guarded(await fetch("/api/me", {
     method: "PUT",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(profile),
-  }).then((r) => r.json());
+  }));
+  const saved = await res.json();
+  // practitioner_type can't change from here (server-enforced), but keep the
+  // cached profile in sync for everything else that was edited.
+  if (!USE_MOCKS) storeSession(getStoredToken(), saved);
+  return saved;
 }

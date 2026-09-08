@@ -174,6 +174,39 @@ body { overflow: hidden; }
 .prof-saved { font-size: var(--fs-sm); color: var(--success); font-weight: var(--weight-medium); margin-right: auto; }
 
 /* ---------------------------------------------------------------------
+   LOGIN / SIGNUP
+   --------------------------------------------------------------------- */
+
+.auth-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100%; padding: var(--space-5) var(--space-3);
+  background: var(--bg);
+}
+.auth-card {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  width: 380px; max-width: 100%;
+  background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  padding: var(--space-5);
+}
+.auth-title { font-size: var(--fs-lg); font-weight: var(--weight-bold); margin-top: -4px; }
+.auth-field { display: flex; flex-direction: column; gap: 4px; }
+.auth-field .prof-input { width: 100%; }
+.auth-submit { width: 100%; margin-top: var(--space-2); }
+.auth-switch { font-size: var(--fs-sm); color: var(--text-2); text-align: center; }
+.auth-link { color: var(--primary); font-weight: var(--weight-medium); cursor: pointer; padding: 0; }
+
+.auth-specialty { border: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.auth-specialty-option {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3); cursor: pointer;
+}
+.auth-specialty-option.on { border-color: var(--primary); background: var(--primary-soft); }
+.auth-specialty-option input { margin-top: 3px; }
+.auth-specialty-option strong { display: block; font-size: var(--fs-sm); }
+.auth-specialty-option .set-help { max-width: none; }
+
+/* ---------------------------------------------------------------------
    PRINTABLE PATIENT SHEET
    --------------------------------------------------------------------- */
 
