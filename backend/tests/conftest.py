@@ -8,12 +8,25 @@ import os
 # unavailability rather than invent clinical content.
 os.environ["MEDIKIOSK_USE_SYNTHETIC_OCR_FIXTURES"] = "1"
 
+# Tests must be hermetic: they send fake, non-image bytes as "documents" and
+# expect the deterministic mock/simulation path every time. If the developer's
+# real .env happens to have a live GEMINI_API_KEY (as it may, once someone on
+# the team adds one), app.main's load_dotenv() would otherwise leak it in here
+# (load_dotenv doesn't override already-set vars, which is exactly what makes
+# setting it first — before importing app.main below — the fix) and every
+# vision-pipeline test would try a real Gemini call against garbage bytes and
+# fail on "unable to process input image" instead of exercising the mock path
+# the tests are actually about.
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["VISION_LLM_API_KEY"] = ""
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database.connection import Base, get_db
+from app.database.seed import seed_reference_data
 from app.main import app
 
 # ─── Test DB Setup ─────────────────────────────────────────────────────────────
@@ -41,8 +54,22 @@ def override_get_db():
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
-    """Create all tables at start of test session, drop at end."""
+    """Create all tables at start of test session, drop at end.
+
+    The app's own startup lifespan also seeds reference data (demo doctor
+    account, advice library) — but it seeds through the production DB
+    connection (app.database.connection.SessionLocal), which the `client`
+    fixture below never touches once get_db is overridden. So the same seed
+    has to run again here, against the actual test database, or the demo
+    doctor account tests log in with (and doctor-assignment routing depends
+    on) simply doesn't exist in it.
+    """
     Base.metadata.create_all(bind=test_engine)
+    db = TestingSessionLocal()
+    try:
+        seed_reference_data(db)
+    finally:
+        db.close()
     yield
     Base.metadata.drop_all(bind=test_engine)
     test_engine.dispose()

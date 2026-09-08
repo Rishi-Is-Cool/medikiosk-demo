@@ -13,7 +13,13 @@ python-multipart>=0.0.9
 
 # ─── Authentication & Security ─────────────────────────────────────────────────
 python-jose[cryptography]>=3.3.0
+# bcrypt is pinned <4.0: passlib 1.7.4's bcrypt backend reads bcrypt.__about__
+# to detect the version, which bcrypt 4.0+ removed — passlib then mis-triggers
+# a "password too long" ValueError even for short passwords. Known upstream
+# incompatibility (passlib has been unmaintained since 2020); pinning is the
+# standard workaround until the project moves off passlib.
 passlib[bcrypt]>=1.7.4
+bcrypt<4.0
 
 # ─── AI & OCR ──────────────────────────────────────────────────────────────────
 google-genai>=1.0.0

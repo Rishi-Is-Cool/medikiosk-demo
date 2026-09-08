@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from sqlalchemy.orm import Session
 
 from app.database.schemas import (
-    ClinicalAlert, ClinicalFact, Encounter, FactProvenance, IntakeAnswer,
+    ClinicalAlert, ClinicalFact, DoctorProfile, Encounter, FactProvenance, IntakeAnswer,
     KioskSession, TimelineEvent,
 )
 from app.ai.question_engine import question_engine
@@ -123,6 +123,43 @@ def parse_follow_up_days(text: Optional[str]) -> Optional[int]:
         return None
     n, unit = int(match.group(1)), match.group(2)
     return n * {"day": 1, "week": 7, "month": 30}[unit]
+
+
+# The kiosk speaks its own vocabulary ("general_medicine" / "ayush", per
+# frontend-kiosk/src/screens/ConsultationTypeScreen.tsx) which becomes
+# Encounter.intake_framework verbatim. Doctor accounts are canonically typed
+# as "general" / "ayurveda" — this is the one place that translates between them.
+_SPECIALTY_BY_FRAMEWORK = {"ayush": "ayurveda", "general_medicine": "general", "allopathic": "general"}
+
+
+def canonical_specialty(intake_framework: str) -> str:
+    return _SPECIALTY_BY_FRAMEWORK.get(intake_framework, "general")
+
+
+class NoDoctorAvailable(Exception):
+    """Raised when no doctor of the requested specialty is registered."""
+    def __init__(self, specialty: str):
+        self.specialty = specialty
+        super().__init__(f"No {specialty} doctor is currently available")
+
+
+def assign_doctor(db: Session, specialty: str) -> str:
+    """Return the username of the specialty-matching doctor with the fewest
+    active (non-finalized) encounters currently assigned. Ties break
+    alphabetically by username, for determinism. Raises NoDoctorAvailable if
+    no doctor of that specialty is registered at all."""
+    doctors = db.query(DoctorProfile).filter(DoctorProfile.practitioner_type == specialty).order_by(DoctorProfile.username).all()
+    if not doctors:
+        raise NoDoctorAvailable(specialty)
+    load = dict.fromkeys((d.username for d in doctors), 0)
+    counts = (
+        db.query(Encounter.assigned_doctor_username)
+        .filter(Encounter.assigned_doctor_username.in_(load.keys()), Encounter.status != "finalized")
+        .all()
+    )
+    for (username,) in counts:
+        load[username] += 1
+    return min(load.items(), key=lambda item: (item[1], item[0]))[0]
 
 
 def source_for_fact(fact: ClinicalFact) -> Dict[str, Any]:

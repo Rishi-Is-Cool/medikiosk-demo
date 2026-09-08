@@ -21,8 +21,9 @@ from app.database.schemas import (AdviceLibraryEntry, ClinicalAlert, ClinicalFac
     PhysicianSnapshot, TimelineEvent, Transcript, UploadSession)
 from app.models.pydantic_models import (ConsentSubmission, DoctorQuestionRequest, LedgerRequest, RegistrationRequest,
     StartIntakeRequestV2, SubmitIntakeAnswerRequest)
-from app.services.integration import (add_timeline_event, create_fact, kiosk_question, now, parse_follow_up_days,
-    persist_answer, persist_red_flags, priority_state, ref, require_session, source_for_fact)
+from app.services.integration import (add_timeline_event, assign_doctor, canonical_specialty, create_fact,
+    kiosk_question, NoDoctorAvailable, now, parse_follow_up_days, persist_answer, persist_red_flags, priority_state,
+    ref, require_session, source_for_fact)
 from app.utils.security import decode_token
 from app.ai.whisper_provider import SpeechUnavailable, whisper_provider
 
@@ -112,8 +113,13 @@ def start_intake(request: StartIntakeRequestV2, db: Session = Depends(get_db)):
     if session.encounter_id:
         encounter = db.query(Encounter).filter(Encounter.encounter_id == session.encounter_id).first()
         if encounter and encounter.status != "finalized": return kiosk_question(encounter, request.language)
+    try:
+        doctor_username = assign_doctor(db, canonical_specialty(request.history_mode))
+    except NoDoctorAvailable as exc:
+        raise HTTPException(503, str(exc))
     encounter = Encounter(encounter_id=ref("enc"), patient_id=session.patient_id, intake_framework=request.history_mode,
-                          chief_complaint=request.chief_complaint_text or request.chief_complaint, language=request.language)
+                          chief_complaint=request.chief_complaint_text or request.chief_complaint, language=request.language,
+                          assigned_doctor_username=doctor_username)
     db.add(encounter); db.flush(); session.encounter_id = encounter.encounter_id
     persist_answer(db, encounter, "q1_chief_complaint", "patient_touch", [], request.chief_complaint_text or request.chief_complaint, request.language)
     add_timeline_event(db, encounter.patient_id, encounter.encounter_id, "consultation", f"New encounter: {encounter.chief_complaint}", "encounter", encounter.encounter_id)
@@ -308,6 +314,14 @@ def _doctor(payload: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
     return data
 
 
+def _require_own_encounter(encounter: Encounter, clinician: Dict[str, Any]) -> None:
+    """A doctor may only act on encounters assigned to them — this is what keeps
+    a general-medicine doctor from ever seeing (or writing to) an Ayurveda
+    patient's chart, and vice versa. Admins can see across specialties."""
+    if clinician.get("role") != "admin" and encounter.assigned_doctor_username != clinician.get("sub"):
+        raise HTTPException(403, "This encounter is assigned to a different doctor")
+
+
 def _lab_flag(details: Dict[str, Any]) -> Any:
     interpretation = (details.get("interpretation") or "").lower()
     if "low" in interpretation:
@@ -361,24 +375,30 @@ def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
 
 
 @doctor_router.get("/queue")
-def doctor_queue(_: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
-    encounters = db.query(Encounter).options(joinedload(Encounter.patient)).filter(Encounter.status != "finalized").order_by(Encounter.started_at).all()
-    return {"department": "MediKiosk OPD", "doctor": {"name": "Authenticated clinician"}, "stats": {"in_queue": len(encounters)},
-            "patients": [{"encounter_id": e.encounter_id, "token": str(i + 1), "name": e.patient.name, "age_years": e.patient.age, "sex": e.patient.gender.lower(), "complaint": e.chief_complaint, "department": "OPD", "intake_framework": e.intake_framework, "intake_state": e.status, "wait_min": None, "priority": e.priority in {"urgent", "priority"}} for i, e in enumerate(encounters)]}
+def doctor_queue(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+    profile = db.query(DoctorProfile).filter(DoctorProfile.username == clinician.get("sub")).first()
+    encounters = (db.query(Encounter).options(joinedload(Encounter.patient))
+                  .filter(Encounter.status != "finalized", Encounter.assigned_doctor_username == clinician.get("sub"))
+                  .order_by(Encounter.started_at).all())
+    department = ("Ayurveda OPD" if profile and profile.practitioner_type == "ayurveda" else "General Medicine OPD") if profile else "MediKiosk OPD"
+    return {"department": department, "doctor": {"name": profile.name if profile else "Authenticated clinician"}, "stats": {"in_queue": len(encounters)},
+            "patients": [{"encounter_id": e.encounter_id, "token": str(i + 1), "name": e.patient.name, "age_years": e.patient.age, "sex": e.patient.gender.lower(), "complaint": e.chief_complaint, "department": department, "intake_framework": e.intake_framework, "intake_state": e.status, "wait_min": None, "priority": e.priority in {"urgent", "priority"}} for i, e in enumerate(encounters)]}
 
 
 @doctor_router.get("/encounters/{encounter_id}/snapshot")
-def doctor_snapshot(encounter_id: str, _: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+def doctor_snapshot(encounter_id: str, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     encounter = db.query(Encounter).options(joinedload(Encounter.patient)).filter(Encounter.encounter_id == encounter_id).first()
     if not encounter: raise HTTPException(404, "Encounter not found")
+    _require_own_encounter(encounter, clinician)
     return _snapshot(db, encounter)
 
 
 @doctor_router.get("/encounters/{encounter_id}/carry-forward")
-def carry_forward(encounter_id: str, _: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+def carry_forward(encounter_id: str, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     """What the patient's previous finalized encounter left behind, offered for reuse."""
     encounter = db.query(Encounter).filter(Encounter.encounter_id == encounter_id).first()
     if not encounter: raise HTTPException(404, "Encounter not found")
+    _require_own_encounter(encounter, clinician)
     previous = (db.query(Encounter)
                 .filter(Encounter.patient_id == encounter.patient_id, Encounter.encounter_id != encounter_id, Encounter.status == "finalized")
                 .order_by(Encounter.finalized_at.desc()).first())
@@ -453,7 +473,10 @@ def get_doctor_profile(clinician: Dict[str, Any] = Depends(_doctor), db: Session
 def update_doctor_profile(update: Dict[str, Any], clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     profile = db.query(DoctorProfile).filter(DoctorProfile.username == clinician.get("sub")).first()
     if not profile: raise HTTPException(404, "No profile on file for this account")
-    for field in ("name", "initials", "qualifications", "title", "registration", "practitioner_type",
+    # practitioner_type is intentionally excluded — it's fixed at signup and
+    # drives patient routing + which console the doctor sees; editable here
+    # would let a doctor silently reroute their own specialty's patients.
+    for field in ("name", "initials", "qualifications", "title", "registration",
                   "clinic_name", "tagline", "slogan", "address", "department", "languages"):
         if field in update: setattr(profile, field, update[field])
     db.commit(); db.refresh(profile)
@@ -468,9 +491,10 @@ def doctor_document(document_id: str, _: Dict[str, Any] = Depends(_doctor), db: 
 
 
 @doctor_router.post("/encounters/{encounter_id}/qa")
-def doctor_qa(encounter_id: str, request: DoctorQuestionRequest, _: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+def doctor_qa(encounter_id: str, request: DoctorQuestionRequest, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     encounter = db.query(Encounter).filter(Encounter.encounter_id == encounter_id).first()
     if not encounter: raise HTTPException(404, "Encounter not found")
+    _require_own_encounter(encounter, clinician)
     terms = [word.lower() for word in request.question.split() if len(word) > 3]
     facts = db.query(ClinicalFact).options(joinedload(ClinicalFact.provenance)).filter(ClinicalFact.patient_id == encounter.patient_id).all()
     found = [f for f in facts if any(term in (f.raw_value + " " + (f.normalized_value or "")).lower() for term in terms)]
@@ -482,6 +506,7 @@ def doctor_qa(encounter_id: str, request: DoctorQuestionRequest, _: Dict[str, An
 def save_ledger(encounter_id: str, request: LedgerRequest, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     encounter = db.query(Encounter).filter(Encounter.encounter_id == encounter_id).first()
     if not encounter: raise HTTPException(404, "Encounter not found")
+    _require_own_encounter(encounter, clinician)
     if encounter.status == "finalized": raise HTTPException(409, "Finalized encounters require an explicit amendment")
     if request.treatment_change and (not request.deviation_reason or not request.doctor_rationale): raise HTTPException(422, "A reason and doctor-authored rationale are required for treatment changes")
     if not request.doctor_confirmed: raise HTTPException(422, "Doctor confirmation is required")
@@ -501,6 +526,7 @@ def save_ledger(encounter_id: str, request: LedgerRequest, clinician: Dict[str, 
 def finalize_encounter(encounter_id: str, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     encounter = db.query(Encounter).filter(Encounter.encounter_id == encounter_id).first()
     if not encounter: raise HTTPException(404, "Encounter not found")
+    _require_own_encounter(encounter, clinician)
     if not db.query(LedgerEntry).filter(LedgerEntry.encounter_id == encounter_id).first(): raise HTTPException(409, "A ledger entry is required before finalization")
     encounter.status = "finalized"; encounter.finalized_at = now(); encounter.finalized_by = clinician.get("sub", "doctor")
     add_timeline_event(db, encounter.patient_id, encounter_id, "finalization", "Encounter finalized", "encounter", encounter_id); db.commit()

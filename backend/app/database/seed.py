@@ -7,7 +7,8 @@ import os
 
 from sqlalchemy.orm import Session
 
-from app.database.schemas import AdviceLibraryEntry, DoctorProfile
+from app.database.schemas import AdviceLibraryEntry, DoctorProfile, User
+from app.utils.security import get_password_hash
 
 _ADVICE_SEED = [
     ("adv_001", "pathya", "Drink lukewarm water through the day", "दिनभर गुनगुना पानी पिएँ"),
@@ -32,21 +33,32 @@ def seed_reference_data(db: Session) -> None:
         for advice_id, kind, text, text_hi in _ADVICE_SEED:
             db.add(AdviceLibraryEntry(advice_id=advice_id, kind=kind, text=text, text_hi=text_hi, used_count=0))
 
+    # The demo doctor account backend/tests/ (test_api.py, test_integrated_flow.py)
+    # and the frontend's stopgap auto-login both log in as. It's seeded as a real,
+    # DB-backed account (not the old in-memory-dict special case) so doctor login
+    # has exactly one code path. practitioner_type is "general" because the
+    # existing integration test drives a "general_medicine" intake and expects
+    # this account to receive it — changing that would break doctor assignment
+    # for that test, not just cosmetics.
     doctor_username = os.getenv("DOCTOR_USERNAME", "doctor_opd_101")
+    doctor_password = os.getenv("DOCTOR_PASSWORD", "doc@MediK2026")
+    if not db.query(User).filter(User.username == doctor_username).first():
+        db.add(User(username=doctor_username, role="doctor", display_name="Dr. S. Nair",
+                    hashed_password=get_password_hash(doctor_password)))
     if not db.query(DoctorProfile).filter(DoctorProfile.username == doctor_username).first():
         db.add(DoctorProfile(
             username=doctor_username,
             name="Dr. S. Nair",
             initials="SN",
-            qualifications="B.A.M.S., M.D. (Ayurveda)",
+            qualifications="M.B.B.S., M.D. (General Medicine)",
             title="Consultant Physician",
             registration="HPR 71-4402-9915",
-            practitioner_type="ayurveda",
+            practitioner_type="general",
             clinic_name="All India Institute of Ayurveda",
             tagline="Sarve santu niramayah",
             slogan="May all be free from illness",
             address="Mathura Road, Gautam Puri, Sarita Vihar, New Delhi 110076",
-            department="Ayurveda OPD, Ground floor",
+            department="General Medicine OPD",
             languages=["hi", "en"],
         ))
 

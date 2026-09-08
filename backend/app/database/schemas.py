@@ -94,6 +94,7 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     role = Column(String, nullable=False, default="doctor")
     display_name = Column(String, nullable=True)
+    hashed_password = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
 
@@ -107,6 +108,7 @@ class Encounter(Base):
     priority = Column(String, default="normal", nullable=False)
     chief_complaint = Column(Text, nullable=True)
     language = Column(String, default="en", nullable=False)
+    assigned_doctor_username = Column(String, nullable=True, index=True)
     started_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     finalized_at = Column(DateTime, nullable=True)
     finalized_by = Column(String, nullable=True)

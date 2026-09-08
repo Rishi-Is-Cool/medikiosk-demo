@@ -5,11 +5,23 @@ Handles kiosk terminal login, doctor authentication, and JWT token issuance.
 import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.database.connection import get_db
+from app.database.schemas import DoctorProfile, User
 from app.models.pydantic_models import Token
-from app.utils.security import create_access_token, decode_token, oauth2_scheme
+from app.utils.security import create_access_token, decode_token, get_password_hash, oauth2_scheme, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+
+class DoctorRegistration(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=6)
+    name: str
+    practitioner_type: str = Field(description="'general' or 'ayurveda' — fixed at signup, sets which console the doctor sees")
+    qualifications: str | None = None
 
 # ─── In-memory credential store (replace with DB-backed user table in production) ─
 # Credentials can be overridden via environment variables
@@ -38,11 +50,20 @@ _KIOSK_CREDENTIALS = {
     response_model=Token,
     summary="Authenticate kiosk terminal or doctor and receive JWT token"
 )
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
     OAuth2 password flow for kiosk terminal / physician authentication.
     Returns a JWT bearer token valid for 24 hours.
+
+    Doctor accounts are DB-backed (real signup, hashed passwords — see
+    /register-doctor) and checked first; kiosk-terminal and admin accounts
+    still use the in-memory credential store below.
     """
+    db_user = db.query(User).filter(User.username == form_data.username, User.role == "doctor").first()
+    if db_user and db_user.hashed_password and verify_password(form_data.password, db_user.hashed_password):
+        access_token = create_access_token(data={"sub": db_user.username, "role": db_user.role})
+        return {"access_token": access_token, "token_type": "bearer", "role": db_user.role}
+
     user_entry = _KIOSK_CREDENTIALS.get(form_data.username)
 
     # Also check simple username=password pattern for test clients
@@ -68,6 +89,36 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         "token_type": "bearer",
         "role": role
     }
+
+
+@router.post(
+    "/register-doctor",
+    response_model=Token,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new doctor account (open self-serve signup)"
+)
+async def register_doctor(payload: DoctorRegistration, db: Session = Depends(get_db)):
+    """
+    Creates a doctor account with a fixed specialty (practitioner_type).
+    That specialty is set once, at signup, and determines which console the
+    doctor sees and which patients get routed to them — it isn't editable
+    from the console afterward. Returns a token immediately (auto-login).
+    """
+    practitioner_type = payload.practitioner_type.strip().lower()
+    if practitioner_type not in {"general", "ayurveda"}:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "practitioner_type must be 'general' or 'ayurveda'")
+    if db.query(User).filter(User.username == payload.username).first():
+        raise HTTPException(status.HTTP_409_CONFLICT, "That username is already taken")
+
+    db.add(User(username=payload.username, role="doctor", display_name=payload.name,
+               hashed_password=get_password_hash(payload.password)))
+    db.add(DoctorProfile(username=payload.username, name=payload.name, practitioner_type=practitioner_type,
+                         qualifications=payload.qualifications,
+                         department="Ayurveda OPD" if practitioner_type == "ayurveda" else "General Medicine OPD"))
+    db.commit()
+
+    access_token = create_access_token(data={"sub": payload.username, "role": "doctor"})
+    return {"access_token": access_token, "token_type": "bearer", "role": "doctor"}
 
 
 @router.get(
