@@ -34,7 +34,13 @@ export default function TrendTable({ trend, onOpenSource }) {
   );
 }
 
+/* Only the "Clinical events" group's rows are keyed by event_type
+   ("consultation", "clinical_decision", ...) — a lab-measure group's rows
+   are keyed by the measure name instead, so the icon map only applies here. */
+const EVENT_ICON = { consultation: "↻", clinical_decision: "↗", finalization: "✓", document: "▤" };
+
 function FragmentGroup({ group, last, onOpenSource }) {
+  const isEvents = group.label === "Clinical events";
   return (
     <>
       <tr className="grp">
@@ -42,7 +48,10 @@ function FragmentGroup({ group, last, onOpenSource }) {
       </tr>
       {group.rows.map((r) => (
         <tr key={r.key}>
-          <td className="rowlab">{r.label}</td>
+          <td className="rowlab">
+            {isEvents ? <span className="tl-icon" aria-hidden="true">{EVENT_ICON[r.label] ?? "•"}</span> : null}
+            {r.label}
+          </td>
           {r.values.map((v, i) => (
             <td
               key={i}

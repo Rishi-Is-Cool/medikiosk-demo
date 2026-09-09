@@ -52,6 +52,7 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
   const [shareToken, setShareToken] = useState(null);
   const [notes, setNotes] = useState(null);
   const [rationale, setRationale] = useState(null);
+  const [mgmtCollapsed, setMgmtCollapsed] = useState(false);
 
   useEffect(() => {
     fetchAdviceLibrary().then(setAdviceLibrary);
@@ -220,55 +221,104 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
         style={{ gridTemplateColumns: evCollapsed ? "minmax(0, 1fr) 44px" : "minmax(0, 62fr) minmax(0, 38fr)" }}
       >
         <div className="left">
-          {/* Zone 1 — the ten-second read. Does not scroll. */}
+          {/* Zone 1 — the ten-second read. Does not scroll. Patient identity
+              itself stays in .idstrip only, which is already always visible —
+              this card is chief complaint + conditions + medications read as
+              one group, with allergies pulled out into their own banner
+              instead of splitting three ways across equal columns. */}
           <section className="band zone1">
-            <h2 className="bandhead">{s.chief_complaint.label}</h2>
-            <p className="cc">
-              {s.chief_complaint.text.value}
-              <span className="cc-dur"> · {s.chief_complaint.text.duration}</span>
-              <SourceChip source={s.chief_complaint.text.source} onOpen={openSource} />
-            </p>
-            {snap.ayush ? <p className="ccsub">Vikriti — {snap.ayush.vikriti.value}</p> : null}
+            <div className="clinical-card">
+              <h2 className="clinical-card-title">Primary Clinical Info</h2>
+              <div className="clinical-subcards">
+                <div className="subcard">
+                  <span className="subcard-label">{s.chief_complaint.label}</span>
+                  <p className="subcard-cc">
+                    {s.chief_complaint.text.value}
+                    <span className="cc-dur"> · {s.chief_complaint.text.duration}</span>
+                    <SourceChip source={s.chief_complaint.text.source} onOpen={openSource} />
+                  </p>
+                  {snap.ayush ? <p className="ccsub">Vikriti — {snap.ayush.vikriti.value}</p> : null}
+                </div>
+                <div className="subcard">
+                  <span className="subcard-label">Active conditions</span>
+                  {s.past_medical_surgical.items.length ? (
+                    s.past_medical_surgical.items.map((it) => (
+                      <Item key={it.fact_id} value={it.value} sub={it.normalized?.display} source={it.source} onOpen={openSource} />
+                    ))
+                  ) : (
+                    <p className="item muted col-empty">None recorded</p>
+                  )}
+                </div>
+                <div className="subcard">
+                  <span className="subcard-label">Current medications</span>
+                  {s.drug_and_allergy.medications.length ? (
+                    s.drug_and_allergy.medications.map((m) => (
+                      <Item key={m.fact_id} value={m.value} source={m.source} onOpen={openSource} />
+                    ))
+                  ) : (
+                    <p className="item muted col-empty">None recorded</p>
+                  )}
+                </div>
+              </div>
+            </div>
 
-            <div className="cols">
-              <Col title="Active conditions">
-                {s.past_medical_surgical.items.map((it) => (
-                  <Item key={it.fact_id} value={it.value} sub={it.normalized?.display} source={it.source} onOpen={openSource} />
-                ))}
-              </Col>
-              <Col title="Current medications">
-                {s.drug_and_allergy.medications.map((m) => (
-                  <Item key={m.fact_id} value={m.value} source={m.source} onOpen={openSource} />
-                ))}
-              </Col>
-              <Col title="Allergies" tone="alert">
-                {s.drug_and_allergy.allergies.map((a, i) => (
-                  <Item
-                    key={a.fact_id ?? `a-${i}`}
-                    value={a.value}
-                    sub={a.reaction}
-                    source={a.source}
-                    onOpen={openSource}
-                    muted={!a.fact_id}
-                  />
-                ))}
-              </Col>
+            <div className="allergy-banner">
+              <b>Allergies:</b>
+              {s.drug_and_allergy.allergies.length ? (
+                <span className="allergy-list">
+                  {s.drug_and_allergy.allergies.map((a, i) => (
+                    <Item
+                      key={a.fact_id ?? `a-${i}`}
+                      value={a.value}
+                      sub={a.reaction}
+                      source={a.source}
+                      onOpen={openSource}
+                      muted={!a.fact_id}
+                    />
+                  ))}
+                </span>
+              ) : (
+                <span>None recorded</span>
+              )}
             </div>
           </section>
 
-          {/* Zone 2 — the scan */}
+          {/* Zone 2 — the scan. HPI and pathya/apathya advice read side by
+              side as one collapsible "Advice & Management" section — between
+              them the longest part of the scan, and collapsible so a doctor
+              who has already read both gets that space back. */}
           <section className="band">
-            <h2 className="bandhead">
-              {s.hpi.label} · {s.hpi.framework}
-            </h2>
-            <dl className="socr">
-              {s.hpi.items.map((it) => (
-                <div className="sc" key={it.key}>
-                  <dt>{it.label}</dt>
-                  <dd>{it.value}</dd>
+            <button
+              type="button"
+              className="collapse-toggle"
+              onClick={() => setMgmtCollapsed((v) => !v)}
+              aria-expanded={!mgmtCollapsed}
+            >
+              <h2 className="bandhead" style={{ marginBottom: 0 }}>Advice &amp; Management</h2>
+              <span className={`collapse-chevron ${mgmtCollapsed ? "" : "open"}`} aria-hidden="true">▾</span>
+            </button>
+            {!mgmtCollapsed ? (
+              <div className="mgmt-grid">
+                <div>
+                  <h3>{s.hpi.label} · {s.hpi.framework}</h3>
+                  <dl className="socr">
+                    {s.hpi.items.map((it) => (
+                      <div className="sc" key={it.key}>
+                        <dt>{it.label}</dt>
+                        <dd>{it.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
-              ))}
-            </dl>
+                <div>
+                  <AdvicePanel
+                    selected={advice}
+                    onChange={setAdvice}
+                    language={snap.patient.preferred_language}
+                  />
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <DashavidhaPanel
@@ -278,7 +328,13 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
           />
 
           <section className="band">
-            <h2 className="bandhead">{snap.trend.label}</h2>
+            <div className="tl-head">
+              <h2 className="bandhead" style={{ marginBottom: 0 }}>Patient Journey Timeline</h2>
+              <div className="tl-rail" aria-hidden="true">
+                <div className="tl-rail-fill" />
+                <div className="tl-rail-thumb" />
+              </div>
+            </div>
             <TrendTable trend={snap.trend} onOpenSource={openSource} />
           </section>
 
@@ -297,12 +353,6 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
               </dl>
             </section>
           ) : null}
-
-          <AdvicePanel
-            selected={advice}
-            onChange={setAdvice}
-            language={snap.patient.preferred_language}
-          />
 
           <MedicinePanel
             selected={medicines}
@@ -398,16 +448,6 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
           onSave={commitLedger}
         />
       ) : null}
-    </div>
-  );
-}
-
-function Col({ title, tone, children }) {
-  const empty = !children || (Array.isArray(children) && children.length === 0);
-  return (
-    <div className={`col ${tone === "alert" ? "alrt" : ""}`}>
-      <h3 className="colh">{title}</h3>
-      {empty ? <p className="item muted col-empty">None recorded</p> : children}
     </div>
   );
 }

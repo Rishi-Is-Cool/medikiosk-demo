@@ -226,6 +226,68 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .item.muted .txt { color: var(--text-2); }
 .col-empty { font-style: italic; font-size: 14px; margin-bottom: 0; }
 
+/* ======================================================================
+   Zone 1 redesign — card-grouped clinical info, adapted from a mockup the
+   team liked: chief complaint + active conditions + current medications
+   read as one "Primary Clinical Info" card instead of three bare columns,
+   and allergies get their own full-width banner instead of competing for
+   a third of the column width. Patient identity itself stays in .idstrip
+   only — it already never leaves the screen, so restating it again here
+   would just be the same three facts twice.
+   ====================================================================== */
+.clinical-card {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4); margin-top: var(--space-3);
+}
+.clinical-card-title {
+  font-family: var(--font-mono); font-size: 13px; font-weight: var(--weight-normal);
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-3);
+  margin-bottom: var(--space-3);
+}
+.clinical-subcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); }
+.subcard { min-width: 0; }
+.subcard-label {
+  display: block; font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-3); margin-bottom: 6px;
+}
+.subcard-cc { font-size: var(--fs-xl); font-weight: var(--weight-bold); display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+
+.allergy-banner {
+  display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;
+  margin-top: var(--space-3); padding: var(--space-2) var(--space-3);
+  background: var(--emergency-soft); color: var(--emergency); border-radius: var(--radius);
+  font-size: 15px;
+}
+.allergy-banner b { font-weight: var(--weight-bold); flex: none; }
+.allergy-list { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+/* ---- Patient Journey Timeline: renamed heading, per-event icons, and a
+   lightweight decorative rail showing where "today" sits in the date
+   range — not a real control, just a visual echo of the mockup's slider. */
+.tl-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.tl-rail { position: relative; flex: 1 1 160px; min-width: 120px; height: 4px; background: var(--line); border-radius: 2px; margin: 0 var(--space-2); }
+.tl-rail-fill { position: absolute; inset: 0 0 0 0; width: 100%; background: var(--primary); border-radius: 2px; opacity: .35; }
+.tl-rail-thumb {
+  position: absolute; top: 50%; right: 0; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--primary); border: 2px solid var(--card); transform: translate(50%, -50%);
+}
+.tl-icon { display: inline-block; margin-right: 6px; }
+
+/* ---- Advice & Management: HPI and pathya/apathya advice read side by
+   side as one collapsible section instead of two stacked full-width
+   bands — collapsible because between them they're the longest part of
+   the scan, and a doctor who has already reviewed both wants that space
+   back without losing everything below it. */
+.collapse-toggle {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: none; border: 0; cursor: pointer; padding: 0; font: inherit; text-align: left;
+}
+.collapse-chevron { flex: none; transition: transform var(--dur-base) var(--ease); color: var(--text-3); }
+.collapse-chevron.open { transform: rotate(180deg); }
+.mgmt-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); margin-top: var(--space-3); }
+.mgmt-grid h3 { font-size: 13px; font-weight: var(--weight-normal); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: var(--space-2); }
+@media (max-width: 1200px) { .mgmt-grid { grid-template-columns: 1fr; } }
+
 /* auto-fit rather than a fixed 4-up grid: a patient who has answered one
    SOCRATES question shouldn't leave three empty column slots sitting next
    to it — the row now grows to fit however many answers actually exist. */
