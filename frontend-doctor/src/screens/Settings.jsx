@@ -9,7 +9,15 @@
    the encounter screen, so a doctor never learns a second navigation model. */
 
 import { useEffect, useState } from "react";
-import { fetchDoctorProfile, saveDoctorProfile } from "../api/client.js";
+import {
+  fetchDoctorProfile,
+  saveDoctorProfile,
+  fetchTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
+  fetchAdviceLibrary,
+} from "../api/client.js";
 import { initials } from "./Patients.jsx";
 
 const SECTIONS = [
@@ -18,6 +26,7 @@ const SECTIONS = [
   { key: "queue", label: "Queue and triage" },
   { key: "modules", label: "Department modules" },
   { key: "terminology", label: "Terminology" },
+  { key: "templates", label: "Prescription templates" },
   { key: "letterhead", label: "Letterhead and signature" },
   { key: "app", label: "About" },
 ];
@@ -144,6 +153,8 @@ export default function Settings({ showAyush, onToggleAyush, practitionerType, o
             </Section>
           ) : null}
 
+          {active === "templates" ? <TemplatesSection /> : null}
+
           {active === "letterhead" ? (
             <Section
               title="Letterhead and signature"
@@ -269,6 +280,164 @@ function Field({ label, help, value, onChange }) {
         {help ? <span className="set-help">{help}</span> : null}
       </span>
       <input className="prof-input" value={value ?? ""} onChange={onChange} aria-label={label} />
+    </div>
+  );
+}
+
+/* Templates are private to each doctor — this list is only ever this
+   account's own copies, starting from the starter set given at signup. */
+function TemplatesSection() {
+  const [templates, setTemplates] = useState(null);
+  const [adviceLibrary, setAdviceLibrary] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+
+  useEffect(() => {
+    fetchTemplates().then(setTemplates);
+    fetchAdviceLibrary().then(setAdviceLibrary);
+  }, []);
+
+  function refresh() {
+    fetchTemplates().then(setTemplates);
+  }
+
+  async function remove(id) {
+    if (!window.confirm("Delete this template? This cannot be undone.")) return;
+    await deleteTemplate(id);
+    if (editingId === id) setEditingId(null);
+    refresh();
+  }
+
+  function startNew() {
+    setEditingId("new");
+  }
+
+  if (!templates) return <p className="screen-msg">Loading templates…</p>;
+
+  return (
+    <Section
+      title="Prescription templates"
+      note="Your own saved bundles of medicines and advice — apply one from the encounter screen in a click, or build one from scratch here. Editing or deleting a template only affects your copy."
+    >
+      <ul className="tpl-list">
+        {templates.map((t) => (
+          <li key={t.id} className="tpl-row">
+            {editingId === t.id ? (
+              <TemplateEditor
+                template={t}
+                adviceLibrary={adviceLibrary}
+                onCancel={() => setEditingId(null)}
+                onSaved={() => { setEditingId(null); refresh(); }}
+              />
+            ) : (
+              <>
+                <div className="tpl-summary">
+                  <span className="tpl-name">{t.name}</span>
+                  <span className="tpl-meta">
+                    {t.medicines.length} medicine{t.medicines.length === 1 ? "" : "s"} · {t.advice_ids.length} advice item{t.advice_ids.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="tpl-actions">
+                  <button type="button" className="btn" onClick={() => setEditingId(t.id)}>Edit</button>
+                  <button type="button" className="btn" onClick={() => remove(t.id)}>Delete</button>
+                </div>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {editingId === "new" ? (
+        <TemplateEditor
+          adviceLibrary={adviceLibrary}
+          onCancel={() => setEditingId(null)}
+          onSaved={() => { setEditingId(null); refresh(); }}
+        />
+      ) : (
+        <button type="button" className="btn btn-primary" onClick={startNew}>
+          New template
+        </button>
+      )}
+    </Section>
+  );
+}
+
+function TemplateEditor({ template, adviceLibrary, onCancel, onSaved }) {
+  const [name, setName] = useState(template?.name ?? "");
+  const [diagnosisLabel, setDiagnosisLabel] = useState(template?.diagnosis_label ?? "");
+  const [medicines, setMedicines] = useState(template?.medicines ?? []);
+  const [adviceIds, setAdviceIds] = useState(new Set(template?.advice_ids ?? []));
+  const [saving, setSaving] = useState(false);
+
+  function updateMedicine(i, field, value) {
+    setMedicines((prev) => prev.map((m, idx) => (idx === i ? { ...m, [field]: value } : m)));
+  }
+  function addMedicine() {
+    setMedicines((prev) => [...prev, { name: "", dosage: "", frequency: "", duration: "" }]);
+  }
+  function removeMedicine(i) {
+    setMedicines((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function toggleAdvice(id) {
+    setAdviceIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    const payload = {
+      name: name.trim(),
+      diagnosis_label: diagnosisLabel.trim() || null,
+      medicines: medicines.filter((m) => m.name.trim()),
+      advice_ids: [...adviceIds],
+    };
+    if (template) await updateTemplate(template.id, payload);
+    else await createTemplate(payload);
+    setSaving(false);
+    onSaved();
+  }
+
+  return (
+    <div className="tpl-editor">
+      <div className="set-row">
+        <span className="set-label">Name</span>
+        <input className="prof-input" value={name} onChange={(e) => setName(e.target.value)} aria-label="Template name" />
+      </div>
+      <div className="set-row">
+        <span className="set-label">Diagnosis label<span className="set-help">Optional — shown to you only.</span></span>
+        <input className="prof-input" value={diagnosisLabel} onChange={(e) => setDiagnosisLabel(e.target.value)} aria-label="Diagnosis label" />
+      </div>
+
+      <p className="tpl-subhead">Medicines</p>
+      {medicines.map((m, i) => (
+        <div key={i} className="med-pick tpl-med-row">
+          <input className="med-field" placeholder="Name" value={m.name} onChange={(e) => updateMedicine(i, "name", e.target.value)} aria-label="Medicine name" />
+          <input className="med-field" placeholder="Dose" value={m.dosage} onChange={(e) => updateMedicine(i, "dosage", e.target.value)} aria-label="Dosage" />
+          <input className="med-field" placeholder="Frequency" value={m.frequency} onChange={(e) => updateMedicine(i, "frequency", e.target.value)} aria-label="Frequency" />
+          <input className="med-field" placeholder="Duration" value={m.duration} onChange={(e) => updateMedicine(i, "duration", e.target.value)} aria-label="Duration" />
+          <button type="button" className="advice-remove" aria-label="Remove medicine" onClick={() => removeMedicine(i)}>×</button>
+        </div>
+      ))}
+      <button type="button" className="btn" onClick={addMedicine}>Add medicine</button>
+
+      <p className="tpl-subhead">Advice</p>
+      <div className="advice-grid">
+        {adviceLibrary.map((a) => (
+          <label key={a.id} className={`advice-opt ${adviceIds.has(a.id) ? "on" : ""}`} data-kind={a.kind}>
+            <input type="checkbox" checked={adviceIds.has(a.id)} onChange={() => toggleAdvice(a.id)} style={{ marginRight: 6 }} />
+            {a.text}
+          </label>
+        ))}
+      </div>
+
+      <div className="prof-actions">
+        <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn btn-primary" disabled={!name.trim() || saving} onClick={save}>
+          {saving ? "Saving…" : "Save template"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,24 +1,38 @@
-/* The take-home sheet.
-
-   Docon prints a prescription pad. This prints the patient's own summary —
-   what they were told, their pathya/apathya advice in their own language, and
-   when to come back. That choice follows the problem statement: the users are
-   elderly, low-literacy and often first-visit, and the thing most often lost
-   to handwriting is the diet and conduct guidance, not the drug list.
+/* The take-home sheet — a complete patient summary, not just a prescription
+   pad: what the patient came in with, what the doctor made of it, what to
+   take, and what to do. In order: chief complaint (their own condition, in
+   brief), the doctor's assessment (only when treatment changed and a
+   rationale was recorded — nothing invented when there isn't one), medicines,
+   then pathya/apathya diet and conduct advice and any free-text note as the
+   doctor's instructions. That last part follows the problem statement: the
+   users are elderly, low-literacy and often first-visit, and diet/conduct
+   guidance is what's most often lost to handwriting — so it stays prominent
+   even though the sheet is no longer drug-list-free.
 
    The letterhead is the doctor profile rendered, not markup — every
    deployment prints under a different institution's name, and a profile edit
    should never require a code change.
 
-   The QR resolves to the patient's own ABHA-linked record. Docon's resolves
-   into a private silo; the right shape, the wrong destination. */
+   Bilingual is a property of the patient, not the doctor: whether Hindi
+   prints alongside English depends on what the patient actually chose on
+   the kiosk (patient.preferred_language), the same signal AdvicePanel
+   already keys off during the encounter — not the doctor's own profile
+   languages, which say nothing about who is reading this sheet.
+
+   The QR resolves to /api/public/visit/{share_token} — a real, unauthenticated
+   page built from this same encounter's finalized record. It only exists once
+   the encounter is finalized (finalize is what mints the token), so a sheet
+   opened earlier for a preview falls back to a placeholder rather than
+   encoding a URL that doesn't work yet. */
 
 import { useEffect, useState } from "react";
-import { fetchDoctorProfile } from "../api/client.js";
+import QRCode from "qrcode";
+import { fetchDoctorProfile, publicVisitUrl } from "../api/client.js";
 import { fmt } from "../screens/Patients.jsx";
 
-export default function PrintSheet({ patient, advice = [], followUp, onClose }) {
+export default function PrintSheet({ patient, chiefComplaint, rationale, advice = [], medicines = [], notes, followUp, shareToken, onClose }) {
   const [profile, setProfile] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
 
   useEffect(() => {
     fetchDoctorProfile().then(setProfile);
@@ -27,15 +41,30 @@ export default function PrintSheet({ patient, advice = [], followUp, onClose }) 
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    if (!shareToken) {
+      setQrDataUrl(null);
+      return;
+    }
+    let alive = true;
+    QRCode.toDataURL(publicVisitUrl(shareToken), { margin: 1, width: 144 })
+      .then((url) => alive && setQrDataUrl(url))
+      .catch(() => alive && setQrDataUrl(null));
+    return () => {
+      alive = false;
+    };
+  }, [shareToken]);
+
   if (!profile) return null;
   const next = followUp ?? patient.next_appointment;
+  const bilingual = patient.preferred_language === "hi";
 
   return (
     <div className="scrim" role="presentation">
       <div className="print-wrap" role="dialog" aria-modal="true" aria-labelledby="ps-h">
         <div className="print-bar no-print">
           <h2 id="ps-h">Patient sheet</h2>
-          <span className="print-note">Printed in {profile.languages.includes("hi") ? "Hindi and English" : "English"}</span>
+          <span className="print-note">Printed in {bilingual ? "Hindi and English" : "English"}</span>
           <span className="spacer" />
           <button type="button" className="btn" onClick={onClose}>Close</button>
           <button type="button" className="btn btn-primary" onClick={() => window.print()}>Print</button>
@@ -59,14 +88,46 @@ export default function PrintSheet({ patient, advice = [], followUp, onClose }) 
             <span className="mk-num">{fmt(new Date().toISOString())}</span>
           </div>
 
+          {chiefComplaint ? (
+            <section className="sheet-block">
+              <h3>{bilingual ? <>मरीज़ की स्थिति <span className="sheet-en">Patient's condition</span></> : "Patient's condition"}</h3>
+              <p className="sheet-notes">{chiefComplaint}</p>
+            </section>
+          ) : null}
+
+          {rationale ? (
+            <section className="sheet-block">
+              <h3>{bilingual ? <>डॉक्टर की राय <span className="sheet-en">Doctor's assessment</span></> : "Doctor's assessment"}</h3>
+              <p className="sheet-notes">{rationale}</p>
+            </section>
+          ) : null}
+
+          {medicines.length ? (
+            <section className="sheet-block">
+              <h3>{bilingual ? <>दवाएँ <span className="sheet-en">Medicines</span></> : "Medicines"}</h3>
+              <ul className="sheet-meds">
+                {medicines.map((m, i) => (
+                  <li key={i}>
+                    <span className="sheet-med-name">{m.name}</span>
+                    <span className="sheet-med-detail">
+                      {[m.dosage, m.frequency, m.duration].filter(Boolean).join(" · ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <section className="sheet-block">
-            <h3>आपके लिए सलाह <span className="sheet-en">Advice for you</span></h3>
+            <h3>{bilingual ? <>आपके लिए सलाह <span className="sheet-en">Advice for you</span></> : "Advice for you"}</h3>
             {!advice.length ? (
               <p className="sheet-none">
                 No advice was recorded for this visit.
-                <span className="sheet-en-line">
-                  Add pathya and apathya during the encounter and it prints here in the patient's language.
-                </span>
+                {bilingual ? (
+                  <span className="sheet-en-line">
+                    Add pathya and apathya during the encounter and it prints here in the patient's language.
+                  </span>
+                ) : null}
               </p>
             ) : null}
             <ul className="sheet-advice">
@@ -74,30 +135,45 @@ export default function PrintSheet({ patient, advice = [], followUp, onClose }) 
                 <li key={i} data-kind={a.kind}>
                   <span className="sheet-mark" aria-hidden="true">{a.kind === "pathya" ? "✓" : "✕"}</span>
                   <span>
-                    <span className="sheet-hi mk-deva">{a.hi}</span>
-                    <span className="sheet-en-line">{a.text}</span>
+                    {bilingual ? <span className="sheet-hi mk-deva">{a.hi}</span> : null}
+                    <span className={bilingual ? "sheet-en-line" : ""}>{a.text}</span>
                   </span>
                 </li>
               ))}
             </ul>
           </section>
 
+          {notes ? (
+            <section className="sheet-block">
+              <h3>{bilingual ? <>डॉक्टर की टिप्पणी <span className="sheet-en">Doctor's note</span></> : "Doctor's note"}</h3>
+              <p className="sheet-notes">{notes}</p>
+            </section>
+          ) : null}
+
           {next ? (
             <section className="sheet-block sheet-next">
-              <h3>अगली मुलाक़ात <span className="sheet-en">Come back on</span></h3>
+              <h3>{bilingual ? <>अगली मुलाक़ात <span className="sheet-en">Come back on</span></> : "Come back on"}</h3>
               <p className="sheet-date mk-num">{fmt(next)}</p>
             </section>
           ) : null}
 
           <footer className="sheet-foot">
             <div className="sheet-qr" aria-hidden="true">
-              <QrPlaceholder />
+              {qrDataUrl ? <img src={qrDataUrl} width="72" height="72" alt="" /> : <QrPlaceholder />}
             </div>
             <p className="sheet-qr-note">
-              इस QR को स्कैन करके अपना रिकॉर्ड देखें
-              <span className="sheet-en-line">
-                Scan to open this visit in your own ABHA health record. Nothing is stored on this sheet.
-              </span>
+              {shareToken ? (
+                <>
+                  {bilingual ? <>इस QR को स्कैन करके अपनी विज़िट देखें<br /></> : null}
+                  <span className={bilingual ? "sheet-en-line" : ""}>
+                    Scan to view this visit summary on your own phone. Nothing else is shared.
+                  </span>
+                </>
+              ) : (
+                <span className={bilingual ? "sheet-en-line" : ""}>
+                  This sheet isn't finalised yet — finalise the encounter to generate a scannable code.
+                </span>
+              )}
             </p>
             <p className="sheet-reg mk-num">{profile.registration}</p>
           </footer>
@@ -107,9 +183,9 @@ export default function PrintSheet({ patient, advice = [], followUp, onClose }) 
   );
 }
 
-/* A drawn placeholder, not a real code — wiring this to an actual ABHA
-   deep link is Kartik's endpoint plus a QR library, and a fake code that
-   scans to nothing would be worse than an obvious placeholder. */
+/* Shown only until the encounter is finalized (finalize mints the
+   share_token the real QR encodes) — an honest "not ready yet" placeholder,
+   not a fake code that would scan to nothing. */
 function QrPlaceholder() {
   const cells = [];
   for (let y = 0; y < 9; y++) {

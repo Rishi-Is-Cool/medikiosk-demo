@@ -14,7 +14,9 @@ import {
   fetchDocument,
   askQuestion,
   saveLedger,
+  finalizeEncounter,
   fetchCarryForward,
+  fetchAdviceLibrary,
 } from "../api/client.js";
 import AlertBar from "../components/AlertBar.jsx";
 import SourceChip from "../components/SourceChip.jsx";
@@ -24,6 +26,7 @@ import EvidencePanel from "../components/EvidencePanel.jsx";
 import LedgerModal from "../components/LedgerModal.jsx";
 import CarryForwardModal from "../components/CarryForwardModal.jsx";
 import AdvicePanel from "../components/AdvicePanel.jsx";
+import MedicinePanel from "../components/MedicinePanel.jsx";
 import PatientRail from "../components/PatientRail.jsx";
 import PrintSheet from "../components/PrintSheet.jsx";
 
@@ -39,11 +42,20 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
   const [carried, setCarried] = useState([]);      // what was brought forward
   const [carriedFrom, setCarriedFrom] = useState(""); // survives closing the dialog
   const [advice, setAdvice] = useState([]);        // Docon #10 selections
+  const [medicines, setMedicines] = useState([]);  // prescribed medicines, catalog or template driven
+  const [adviceLibrary, setAdviceLibrary] = useState([]); // for template-applied advice lookups
   const [ayushEdits, setAyushEdits] = useState([]); // doctor amendments to the kiosk reading
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [evCollapsed, setEvCollapsed] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(null);
+  const [shareToken, setShareToken] = useState(null);
+  const [notes, setNotes] = useState(null);
+  const [rationale, setRationale] = useState(null);
+
+  useEffect(() => {
+    fetchAdviceLibrary().then(setAdviceLibrary);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -54,8 +66,12 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
     setCarried([]);
     setCarriedFrom("");
     setAdvice([]);
+    setMedicines([]);
     setPrinting(false);
     setFollowUpDate(null);
+    setShareToken(null);
+    setNotes(null);
+    setRationale(null);
     setAyushEdits([]);
     fetchSnapshot(encounterId, { viewerShowsAyush: showAyush })
       .then((d) => alive && setSnap(d))
@@ -107,10 +123,33 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
 
   async function commitLedger(entry) {
     setSaving(true);
-    await saveLedger(encounterId, { ...entry, advice: advice.map((a) => a.id), carried_forward: carried.map((c) => c.key), ayush_amendments: ayushEdits });
+    try {
+      /* The backend's LedgerRequest.advice is List[Dict], not List[str] — it
+         stores (and the public visit page later re-derives) full entries, not
+         bare ids. Sending ids here 422s the save, which is why finalize was
+         never reachable in practice even after being wired up. */
+      await saveLedger(encounterId, {
+        ...entry,
+        advice,
+        medicines,
+        carried_forward: carried.map((c) => c.key),
+        ayush_amendments: ayushEdits,
+      });
+      /* Finalize is the actual end of the consultation, not just the ledger
+         save — it's what removes the patient from GET /api/queue and mints
+         the share_token the printed sheet's QR points at. */
+      const result = await finalizeEncounter(encounterId);
+      setShareToken(result?.share_token ?? null);
+    } catch (e) {
+      setSaving(false);
+      alert(`Could not finalise this encounter: ${e.message}`);
+      return;
+    }
     setSaving(false);
     setLedgerOpen(false);
     setFinalised(true);
+    setNotes(entry.notes ?? null);
+    setRationale(entry.treatment_change ? entry.doctor_rationale ?? null : null);
     setFollowUpDate(entry.follow_up_required ? dateFromTimeframe(entry.follow_up_timeframe) : null);
     /* Finishing the encounter is the moment the sheet is wanted — the patient
        is still in the room. Offering it later, from the record, is too late. */
@@ -265,6 +304,14 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
             language={snap.patient.preferred_language}
           />
 
+          <MedicinePanel
+            selected={medicines}
+            onChange={setMedicines}
+            advice={advice}
+            onApplyAdvice={setAdvice}
+            adviceLibrary={adviceLibrary}
+          />
+
           <section className="band last">
             <h2 className="bandhead">On file — not shown</h2>
             <div className="badges">
@@ -298,9 +345,6 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
         <button type="button" className="btn" onClick={openCarryForward}>
           Carry forward
         </button>
-        <button type="button" className="btn" onClick={() => alert("Inline editing — not built yet")}>
-          Edit summary
-        </button>
         <button
           type="button"
           className={`btn ${finalised ? "btn-primary" : ""}`}
@@ -323,8 +367,13 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
       {printing ? (
         <PrintSheet
           patient={snap.patient}
+          chiefComplaint={s.chief_complaint.text.value}
+          rationale={rationale}
           advice={advice}
+          medicines={medicines}
+          notes={notes}
           followUp={followUpDate}
+          shareToken={shareToken}
           onClose={() => setPrinting(false)}
         />
       ) : null}
@@ -354,10 +403,11 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
 }
 
 function Col({ title, tone, children }) {
+  const empty = !children || (Array.isArray(children) && children.length === 0);
   return (
     <div className={`col ${tone === "alert" ? "alrt" : ""}`}>
       <h3 className="colh">{title}</h3>
-      {children}
+      {empty ? <p className="item muted col-empty">None recorded</p> : children}
     </div>
   );
 }

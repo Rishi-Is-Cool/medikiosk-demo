@@ -432,6 +432,42 @@ export const DUE_BACK = [
    one source, two uses, so a deployment never prints under a stale name.
    --------------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------------
+   Medicine catalog + prescription templates. Specialty-scoped and per-doctor,
+   same as the real backend — mocks exist only so VITE_USE_MOCKS=1 keeps
+   working, they are not the source of truth.
+   --------------------------------------------------------------------------- */
+
+export const MEDICINE_CATALOG = [
+  { id: "med_a01", name: "Triphala Churna", form: "churna", strength: "5gm", used_count: 210 },
+  { id: "med_a02", name: "Ashwagandha Vati", form: "vati", strength: "500mg", used_count: 175 },
+  { id: "med_a03", name: "Dashmoolarishta", form: "arishta", strength: "15ml", used_count: 140 },
+  { id: "med_a04", name: "Hingvashtak Churna", form: "churna", strength: "3gm", used_count: 96 },
+  { id: "med_a05", name: "Sitopaladi Churna", form: "churna", strength: "3gm", used_count: 88 },
+];
+
+export const PRESCRIPTION_TEMPLATES = [
+  {
+    id: "tpl_mock_01",
+    name: "Jwara (fever) protocol",
+    diagnosis_label: "Jwara",
+    medicines: [
+      { name: "Sitopaladi Churna", dosage: "3gm", frequency: "twice daily with honey", duration: "5 days" },
+      { name: "Dashmoolarishta", dosage: "15ml", frequency: "twice daily after food", duration: "5 days" },
+    ],
+    advice_ids: ["adv_001", "adv_013"],
+  },
+  {
+    id: "tpl_mock_02",
+    name: "Agnimandya (digestive weakness)",
+    diagnosis_label: "Agnimandya",
+    medicines: [
+      { name: "Hingvashtak Churna", dosage: "3gm", frequency: "before meals", duration: "10 days" },
+    ],
+    advice_ids: ["adv_005", "adv_014"],
+  },
+];
+
 export const DOCTOR_PROFILE = {
   doctor_id: "doc_001",
   name: "Dr. S. Nair",

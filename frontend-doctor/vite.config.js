@@ -10,7 +10,9 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      // Point at Kartik's FastAPI once it is up; until then VITE_USE_MOCKS=1.
+      // The main FastAPI backend (auth, queue, encounters, prescribing, public
+      // visit pages). Not the ml_backend vision/OCR microservice, which runs
+      // separately on :8001 and is only reached indirectly, via the backend.
       "/api": { target: "http://localhost:8000", changeOrigin: true },
     },
   },

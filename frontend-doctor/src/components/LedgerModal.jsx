@@ -13,6 +13,7 @@ export default function LedgerModal({ patientName, onCancel, onSave, saving }) {
   const [treatmentChanged, setTreatmentChanged] = useState(true);
   const [reason, setReason] = useState("");
   const [rationale, setRationale] = useState("");
+  const [notes, setNotes] = useState("");
   const [followUp, setFollowUp] = useState(true);
   const [timeframe, setTimeframe] = useState("7 days");
   const [error, setError] = useState("");
@@ -40,6 +41,7 @@ export default function LedgerModal({ patientName, onCancel, onSave, saving }) {
       treatment_change: treatmentChanged,
       deviation_reason: treatmentChanged ? reason : null,
       doctor_rationale: treatmentChanged ? rationale.trim() : null,
+      notes: notes.trim() || null,
       follow_up_required: followUp,
       follow_up_timeframe: followUp ? timeframe : null,
       doctor_confirmed: true,
@@ -116,6 +118,16 @@ export default function LedgerModal({ patientName, onCancel, onSave, saving }) {
             </fieldset>
           </>
         ) : null}
+
+        <fieldset className="fs">
+          <legend>Note for the patient summary</legend>
+          <textarea
+            rows={2}
+            value={notes}
+            placeholder="Anything the printed sheet should say in your own words — optional."
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </fieldset>
 
         <fieldset className="fs">
           <legend>Follow-up</legend>

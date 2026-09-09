@@ -38,7 +38,8 @@ export default function Queue({ onOpen, tab, onTab }) {
       <header className="qtop">
         <h1 className="dept">{data.department}</h1>
         <span className="who">
-          {data.doctor.name} · HPR {data.doctor.hpr}
+          {data.doctor.name}
+          {data.doctor.hpr ? ` · ${data.doctor.hpr}` : ""}
         </span>
         <span className="who right">
           {new Date().toLocaleDateString("en-IN", {

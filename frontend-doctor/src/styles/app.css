@@ -195,8 +195,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .band { padding: var(--space-3) var(--space-4) var(--space-4); border-bottom: 1px solid var(--line); }
 .band.last { border-bottom: 0; }
 .bandhead {
-  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: var(--weight-normal);
-  letter-spacing: .12em; text-transform: uppercase; color: var(--text-3);
+  font-family: var(--font-mono); font-size: 13px; font-weight: var(--weight-normal);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-3);
   margin-bottom: var(--space-2);
 }
 
@@ -209,28 +209,32 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border: 1px solid var(--line); border-radius: var(--radius);
   margin-top: var(--space-3); overflow: hidden;
 }
-.col { padding: var(--space-2) var(--space-3); border-right: 1px solid var(--line); min-width: 0; }
+.col { padding: var(--space-3); border-right: 1px solid var(--line); min-width: 0; }
 .col:last-child { border-right: 0; }
 .col.alrt { background: var(--emergency-soft); }
 .colh {
-  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: var(--weight-normal);
-  letter-spacing: .1em; text-transform: uppercase; color: var(--text-3);
-  margin-bottom: var(--space-1);
+  font-family: var(--font-mono); font-size: 13px; font-weight: var(--weight-normal);
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-3);
+  margin-bottom: var(--space-2);
 }
 .col.alrt .colh { color: var(--emergency); }
 
-.item { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; font-size: var(--fs-sm); }
+.item { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 15px; }
 .item .txt { flex: 1; min-width: 0; }
-.item .sub { color: var(--text-2); font-size: var(--fs-xs); }
+.item .sub { color: var(--text-2); font-size: 13px; }
 .col.alrt .item:not(.muted) .txt { color: var(--emergency); font-weight: var(--weight-bold); }
 .item.muted .txt { color: var(--text-2); }
+.col-empty { font-style: italic; font-size: 14px; margin-bottom: 0; }
 
-.socr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); }
+/* auto-fit rather than a fixed 4-up grid: a patient who has answered one
+   SOCRATES question shouldn't leave three empty column slots sitting next
+   to it — the row now grows to fit however many answers actually exist. */
+.socr { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3) var(--space-4); }
 .sc dt {
-  font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em;
+  font-family: var(--font-mono); font-size: 13px; letter-spacing: .06em;
   text-transform: uppercase; color: var(--text-3);
 }
-.sc dd { font-size: var(--fs-sm); }
+.sc dd { font-size: 15px; margin-top: 2px; }
 
 /* Dashavidha */
 .dosha { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); flex-wrap: wrap; }
@@ -500,6 +504,48 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .durow { grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) 120px 90px; }
   .durow .qm:last-of-type { display: none; }
 }
+
+/* Prescribing — medicine catalog, per-doctor templates */
+.med-toolbar { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); flex-wrap: wrap; }
+.med-tpl-picker { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-2); }
+.med-tpl-picker select {
+  min-height: var(--target-min); padding: 4px var(--space-2); font-size: var(--fs-sm);
+  background: var(--card); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+.med-tpl-save { display: flex; align-items: center; gap: 6px; }
+.med-tpl-save input {
+  min-height: var(--target-min); padding: 5px var(--space-2); font-size: var(--fs-sm);
+  background: var(--card); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+.med-chosen { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.med-pick {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2); border-radius: var(--radius);
+  border-left: 3px solid var(--primary); background: var(--primary-soft);
+}
+.med-name { flex: 1 1 auto; min-width: 100px; font-size: var(--fs-sm); font-weight: var(--weight-medium, 600); }
+.med-field {
+  flex: 1 1 0; min-width: 0; min-height: var(--target-min);
+  padding: 4px var(--space-2); font-size: var(--fs-xs);
+  background: var(--card); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+
+/* Settings — Prescription templates */
+.tpl-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.tpl-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.tpl-summary { display: flex; flex-direction: column; gap: 2px; }
+.tpl-name { font-size: var(--fs-sm); font-weight: var(--weight-medium, 600); }
+.tpl-meta { font-size: var(--fs-xs); color: var(--text-3); }
+.tpl-actions { display: flex; gap: var(--space-2); flex: none; }
+.tpl-editor {
+  width: 100%; display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+.tpl-subhead { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin-top: var(--space-2); }
+.tpl-med-row { width: 100%; }
 
 /* ======================================================================
    C10 CATALOGUE — search · most-frequent · A–Z · index rail

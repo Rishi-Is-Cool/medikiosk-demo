@@ -13,6 +13,8 @@ import {
   PATIENT_DIRECTORY,
   PATIENT_RECORDS,
   DOCTOR_PROFILE,
+  MEDICINE_CATALOG,
+  PRESCRIPTION_TEMPLATES,
 } from "./mock.js";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "0";
@@ -76,13 +78,47 @@ async function get(path) {
   return res.json();
 }
 
+async function send(method, path, body) {
+  const res = await guarded(await fetch(path, {
+    method,
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }));
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
+  return res.status === 204 ? null : res.json();
+}
+
+/* FastAPI's validation-error body shapes `detail` as a list of
+   {loc, msg, type} objects, not a string — the register-doctor form used to
+   show a bare "(422)" for e.g. a too-short username because it only handled
+   the string case. This reads either shape into one readable line. */
+async function _authErrorMessage(res, fallback) {
+  const detail = await res.json().catch(() => null);
+  if (typeof detail?.detail === "string") return detail.detail;
+  if (Array.isArray(detail?.detail) && detail.detail.length) {
+    return detail.detail
+      .map((d) => {
+        const field = Array.isArray(d.loc) ? d.loc[d.loc.length - 1] : null;
+        const label = typeof field === "string" ? field[0].toUpperCase() + field.slice(1) : null;
+        return label ? `${label}: ${d.msg}` : d.msg || JSON.stringify(d);
+      })
+      .join("; ");
+  }
+  return `${fallback} (${res.status}).`;
+}
+
 export async function login(username, password) {
+  if (USE_MOCKS) {
+    await sleep(400);
+    const profile = await fetchDoctorProfile();
+    return profile;
+  }
   const res = await fetch("/api/auth/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
   });
-  if (!res.ok) throw new Error(res.status === 401 ? "Incorrect username or password." : `Could not sign in (${res.status}).`);
+  if (!res.ok) throw new Error(res.status === 401 ? "Incorrect username or password." : await _authErrorMessage(res, "Could not sign in"));
   const { access_token: token } = await res.json();
   storeSession(token, null);
   const profile = await fetchDoctorProfile();
@@ -91,15 +127,19 @@ export async function login(username, password) {
 }
 
 export async function registerDoctor({ username, password, name, practitionerType, qualifications }) {
+  if (USE_MOCKS) {
+    await sleep(400);
+    const profile = await fetchDoctorProfile();
+    profile.name = name;
+    profile.practitioner_type = practitionerType;
+    return profile;
+  }
   const res = await fetch("/api/auth/register-doctor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password, name, practitioner_type: practitionerType, qualifications: qualifications || null }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(typeof detail?.detail === "string" ? detail.detail : `Could not create the account (${res.status}).`);
-  }
+  if (!res.ok) throw new Error(await _authErrorMessage(res, "Could not create the account"));
   const { access_token: token } = await res.json();
   storeSession(token, null);
   const profile = await fetchDoctorProfile();
@@ -170,7 +210,29 @@ export async function saveLedger(encounterId, entry) {
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(entry),
   }));
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — could not save the ledger entry`);
   return res.json();
+}
+
+/* The actual end of a consultation — removes the patient from GET /api/queue
+   and mints the share_token the patient sheet's QR code points at. Must run
+   after saveLedger, which finalize requires at least one ledger entry to exist. */
+export async function finalizeEncounter(encounterId) {
+  if (USE_MOCKS) {
+    await sleep(250);
+    return { ok: true, encounter_id: encounterId, status: "finalized", share_token: `mock_${encounterId}` };
+  }
+  return send("POST", `/api/encounters/${encounterId}/finalize`);
+}
+
+/* The URL the patient sheet's QR code encodes. Same "needs a real LAN/public
+   address for a phone to actually reach it" caveat frontend-kiosk documents
+   for NEXT_PUBLIC_KIOSK_PUBLIC_ORIGIN — window.location.origin is fine for a
+   doctor viewing their own screen, but a phone scanning the printed sheet
+   needs the deployment's real address, set via VITE_PUBLIC_BACKEND_ORIGIN. */
+export function publicVisitUrl(shareToken) {
+  const origin = import.meta.env.VITE_PUBLIC_BACKEND_ORIGIN || window.location.origin;
+  return `${origin}/api/public/visit/${shareToken}`;
 }
 
 /* --- Docon-derived endpoints ------------------------------------------- */
@@ -243,4 +305,59 @@ export async function saveDoctorProfile(profile) {
   // cached profile in sync for everything else that was edited.
   if (!USE_MOCKS) storeSession(getStoredToken(), saved);
   return saved;
+}
+
+/* --- Prescribing: medicine catalog + templates --------------------------
+   Both are specialty-scoped server-side (a general doctor never receives
+   Ayurvedic formulation names or vice versa), and templates are further
+   scoped to the logged-in doctor — the mocks reuse one fixed list since
+   there's only ever one demo doctor signed in at a time. */
+
+export async function fetchMedicines(query = "") {
+  if (USE_MOCKS) {
+    await sleep(140);
+    const q = query.trim().toLowerCase();
+    return structuredClone(MEDICINE_CATALOG)
+      .filter((m) => !q || m.name.toLowerCase().includes(q))
+      .sort((a, b) => b.used_count - a.used_count);
+  }
+  return get(`/api/medicines${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+}
+
+export async function fetchTemplates() {
+  if (USE_MOCKS) {
+    await sleep(140);
+    return structuredClone(PRESCRIPTION_TEMPLATES);
+  }
+  return get("/api/templates");
+}
+
+export async function createTemplate(template) {
+  if (USE_MOCKS) {
+    await sleep(250);
+    const saved = { id: `tpl_mock_${Date.now()}`, ...template };
+    PRESCRIPTION_TEMPLATES.push(saved);
+    return structuredClone(saved);
+  }
+  return send("POST", "/api/templates", template);
+}
+
+export async function updateTemplate(templateId, template) {
+  if (USE_MOCKS) {
+    await sleep(250);
+    const i = PRESCRIPTION_TEMPLATES.findIndex((t) => t.id === templateId);
+    if (i >= 0) PRESCRIPTION_TEMPLATES[i] = { ...PRESCRIPTION_TEMPLATES[i], ...template };
+    return structuredClone(PRESCRIPTION_TEMPLATES[i]);
+  }
+  return send("PUT", `/api/templates/${templateId}`, template);
+}
+
+export async function deleteTemplate(templateId) {
+  if (USE_MOCKS) {
+    await sleep(200);
+    const i = PRESCRIPTION_TEMPLATES.findIndex((t) => t.id === templateId);
+    if (i >= 0) PRESCRIPTION_TEMPLATES.splice(i, 1);
+    return null;
+  }
+  return send("DELETE", `/api/templates/${templateId}`);
 }

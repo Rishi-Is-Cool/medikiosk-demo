@@ -224,45 +224,60 @@ body { overflow: hidden; }
 .print-bar h2 { font-size: var(--fs-base); }
 .print-note { font-size: var(--fs-xs); color: var(--text-3); }
 
-.sheet { padding: var(--space-5); background: #FFFFFF; color: #111111; }
-.sheet-head { text-align: center; border-bottom: 2px solid #111111; padding-bottom: var(--space-3); }
-.sheet-clinic { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
-.sheet-tagline { font-size: 14px; color: #444444; margin-top: 2px; }
-.sheet-slogan { font-size: 13px; font-style: italic; color: #444444; margin-top: 2px; }
-.sheet-doc { font-size: 20px; font-weight: 600; margin-top: var(--space-3); }
-.sheet-quals, .sheet-title { font-size: 13px; color: #333333; }
-.sheet-addr { font-size: 12px; color: #555555; margin-top: 6px; }
+/* Sized well above the console's own dashboard density on purpose: this is
+   the one screen in frontend-doctor whose reader is the patient, not the
+   doctor — same "elderly, low-literacy, arm's length" audience the kiosk's
+   own (much larger) type scale was built for. Font sizes and spacing here
+   are hardcoded rather than pulled from the dashboard --fs- / --space- tokens
+   for that reason. */
+.sheet { padding: 36px 40px; background: #FFFFFF; color: #111111; line-height: 1.5; }
+.sheet-head { text-align: center; border-bottom: 2px solid #111111; padding-bottom: 18px; }
+.sheet-clinic { font-size: 27px; font-weight: 600; letter-spacing: -.01em; }
+.sheet-tagline { font-size: 16px; color: #444444; margin-top: 4px; }
+.sheet-slogan { font-size: 15px; font-style: italic; color: #444444; margin-top: 4px; }
+.sheet-doc { font-size: 23px; font-weight: 600; margin-top: 16px; }
+.sheet-quals, .sheet-title { font-size: 15px; color: #333333; }
+.sheet-addr { font-size: 14px; color: #555555; margin-top: 8px; }
 
 .sheet-pt {
-  display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
-  padding: var(--space-2) 0; border-bottom: 1px solid #CCCCCC;
-  font-size: 13px; color: #222222;
+  display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  padding: 14px 0; border-bottom: 1px solid #CCCCCC;
+  font-size: 16px; color: #222222;
 }
 
-.sheet-block { margin-top: var(--space-4); }
-.sheet-block h3 { font-size: 17px; font-weight: 600; margin-bottom: var(--space-2); }
-.sheet-en { font-size: 13px; font-weight: 400; color: #555555; margin-left: 8px; }
-.sheet-advice { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.sheet-advice li { display: flex; gap: 10px; align-items: flex-start; }
+.sheet-block { margin-top: 24px; }
+.sheet-block h3 { font-size: 21px; font-weight: 600; margin-bottom: 10px; }
+.sheet-en { font-size: 15px; font-weight: 400; color: #555555; margin-left: 10px; }
+.sheet-advice { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; font-size: 17px; }
+.sheet-advice li { display: flex; gap: 12px; align-items: flex-start; }
 .sheet-mark {
-  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 600;
+  font-size: 15px; font-weight: 600;
 }
 .sheet-advice li[data-kind="pathya"] .sheet-mark { background: #E1EFE2; color: #2C6E36; }
 .sheet-advice li[data-kind="apathya"] .sheet-mark { background: #F9E4E2; color: #AF2A20; }
-.sheet-hi { display: block; font-size: 16px; color: #111111; }
-.sheet-en-line { display: block; font-size: 12px; color: #555555; }
-.sheet-next .sheet-date { font-size: 20px; font-weight: 600; }
+.sheet-hi { display: block; font-size: 19px; color: #111111; }
+.sheet-en-line { display: block; font-size: 15px; color: #555555; }
+.sheet-next .sheet-date { font-size: 24px; font-weight: 600; }
+
+/* Stacked, not spread edge-to-edge — a short drug name and a short dose
+   line inside a wide space-between row is exactly the dead horizontal gap
+   this sheet used to have. Reading top-to-bottom like an actual
+   prescription line closes that gap regardless of how short either part is. */
+.sheet-meds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.sheet-meds li { display: flex; flex-direction: column; gap: 2px; }
+.sheet-med-name { font-size: 18px; font-weight: 600; color: #111111; }
+.sheet-med-detail { font-size: 15px; color: #555555; }
 
 .sheet-foot {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-3);
-  align-items: center; margin-top: var(--space-5);
-  padding-top: var(--space-3); border-top: 1px solid #CCCCCC;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px;
+  align-items: center; margin-top: 32px;
+  padding-top: 18px; border-top: 1px solid #CCCCCC;
 }
 .sheet-qr { color: #111111; }
-.sheet-qr-note { font-size: 13px; color: #222222; }
-.sheet-reg { font-size: 11px; color: #555555; }
+.sheet-qr-note { font-size: 15px; color: #222222; }
+.sheet-reg { font-size: 13px; color: #555555; }
 
 @media print {
   /* The app frame is height:100vh with overflow hidden, which cannot paginate.
@@ -313,7 +328,6 @@ body { overflow: hidden; }
 }
 
 @page { margin: 14mm; }
-}
 
 @media (max-width: 1200px) {
   .pat-head { display: none; }
@@ -351,3 +365,4 @@ body { overflow: hidden; }
 .ev-toggle:hover { background: var(--row-hover); color: var(--text); }
 
 .sheet-none { font-size: 14px; color: #555555; }
+.sheet-notes { font-size: 14px; color: #111111; white-space: pre-wrap; }

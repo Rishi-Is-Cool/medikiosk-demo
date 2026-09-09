@@ -15,7 +15,7 @@ export default function TrendTable({ trend, onOpenSource }) {
           <tr>
             <th className="rowlab">Measure</th>
             {trend.dates.map((d, i) => (
-              <th key={d} className={i === last ? "today" : undefined}>
+              <th key={`${d}-${i}`} className={i === last ? "today" : undefined}>
                 {d}
                 {i === last ? " · today" : ""}
               </th>
