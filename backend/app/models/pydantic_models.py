@@ -119,7 +119,21 @@ class RegistrationRequest(BaseModel):
     identity_method: str = "new"
     identifier: Optional[str] = None
     language: str = "en"
-    new_patient: Optional[Dict[str, str]] = None
+    new_patient: Optional[Dict[str, Any]] = None
+    # Optional health IDs a new patient can attach at registration.
+    abha_number: Optional[str] = None
+    aadhaar_number: Optional[str] = None
+
+
+class LookupRequest(BaseModel):
+    identity_method: str  # "abha" | "aadhaar"
+    identifier: str
+    language: str = "en"
+
+
+class AutofillRequest(BaseModel):
+    session_id: str
+    language: str = "en"
 
 
 class ConsentSubmission(BaseModel):
@@ -133,7 +147,9 @@ class ConsentSubmission(BaseModel):
 class StartIntakeRequestV2(BaseModel):
     session_id: str
     history_mode: str
-    chief_complaint: str
+    # Multi-select complaints; chief_complaint is kept for older clients.
+    chief_complaints: List[str] = Field(default_factory=list)
+    chief_complaint: Optional[str] = None
     chief_complaint_text: Optional[str] = None
     language: str = "en"
 
@@ -142,6 +158,9 @@ class AnswerPayload(BaseModel):
     source: str
     values: List[str] = Field(default_factory=list)
     text: Optional[str] = None
+    # Set when the text came from /speech/transcribe, so the stored answer links
+    # back to the transcript as its evidence.
+    transcript_id: Optional[str] = None
 
 
 class SubmitIntakeAnswerRequest(BaseModel):

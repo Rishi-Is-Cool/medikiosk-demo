@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Float, JSON
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Float, JSON, Index
 from sqlalchemy.orm import relationship
 from app.database.connection import Base
 
@@ -13,6 +13,9 @@ class Patient(Base):
     gender = Column(String, nullable=False)
     language = Column(String, default="en")
     abha_id = Column(String, unique=True, nullable=True, index=True)
+    # Aadhaar is never stored in full: an HMAC for lookup, last 4 for display.
+    aadhaar_hash = Column(String, unique=True, nullable=True, index=True)
+    aadhaar_last4 = Column(String(4), nullable=True)
     phone = Column(String, nullable=True)
     consent_granted = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -113,6 +116,12 @@ class Encounter(Base):
     finalized_at = Column(DateTime, nullable=True)
     finalized_by = Column(String, nullable=True)
     share_token = Column(String, unique=True, nullable=True, index=True)
+    # OPD token: numbered 1, 2, 3… per doctor per calendar day in India.
+    queue_date = Column(String(10), nullable=True, index=True)
+    queue_token = Column(Integer, nullable=True)
+    __table_args__ = (
+        Index("ix_encounters_queue_token", "assigned_doctor_username", "queue_date", "queue_token", unique=True),
+    )
     patient = relationship("Patient", back_populates="encounters")
     sessions = relationship("KioskSession", back_populates="encounter", cascade="all, delete-orphan")
     answers = relationship("IntakeAnswer", back_populates="encounter", cascade="all, delete-orphan")

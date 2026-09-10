@@ -27,7 +27,10 @@ try:
 except ImportError:
     pass
 
+import threading
+
 from app.database.connection import engine, Base, SessionLocal
+from app.database.migrations import ensure_columns
 from app.database.seed import seed_reference_data
 from app.api import auth, patients, interview, documents, summary, fhir_abdm, admin, integration, prescribing, public
 
@@ -36,11 +39,18 @@ from app.api import auth, patients, interview, documents, summary, fhir_abdm, ad
 async def lifespan(app: FastAPI):
     """Create all DB tables on startup (no Alembic required for SQLite dev)."""
     Base.metadata.create_all(bind=engine)
+    # create_all never adds columns to existing tables; this does, additively.
+    ensure_columns(engine)
     db = SessionLocal()
     try:
         seed_reference_data(db)
     finally:
         db.close()
+    # Load the Whisper model in the background so the first patient to speak
+    # doesn't wait for a model download/load. Off in tests (WHISPER_PREWARM=0).
+    if os.getenv("WHISPER_PREWARM", "1") != "0":
+        from app.ai.whisper_provider import whisper_provider
+        threading.Thread(target=whisper_provider.prewarm, name="whisper-prewarm", daemon=True).start()
     yield
     # Clean shutdown hooks can go here
 

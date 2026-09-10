@@ -19,6 +19,11 @@ os.environ["MEDIKIOSK_USE_SYNTHETIC_OCR_FIXTURES"] = "1"
 # the tests are actually about.
 os.environ["GEMINI_API_KEY"] = ""
 os.environ["VISION_LLM_API_KEY"] = ""
+# Never download or load the Whisper model during tests.
+os.environ["WHISPER_PREWARM"] = "0"
+# Tests must run against the local SQLite file, never the team's Supabase
+# database that the developer's .env points at.
+os.environ["DATABASE_URL"] = "sqlite:///./medikiosk_test_app.db"
 
 import pytest
 from fastapi.testclient import TestClient

@@ -27,6 +27,13 @@ class FasterWhisperProvider:
             raise SpeechUnavailable(f"Local Whisper could not be initialized: {exc}") from exc
         return self._model
 
+    def prewarm(self) -> None:
+        """Load the model ahead of the first recording (called from a startup thread)."""
+        try:
+            self._load()
+        except SpeechUnavailable as exc:
+            print(f"[whisper] prewarm skipped: {exc}")
+
     def transcribe(self, path: str, language: Optional[str] = None) -> dict:
         model = self._load()
         try:

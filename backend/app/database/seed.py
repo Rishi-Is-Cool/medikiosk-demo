@@ -162,4 +162,23 @@ def seed_reference_data(db: Session) -> None:
     if is_new_demo_doctor:
         copy_default_templates(db, doctor_username, "general")
 
+    # AYUSH intakes are routed to an "ayurveda" doctor and fail with 503 when
+    # none exists — which is the case on any fresh database. Seed one only when
+    # the database has no Ayurveda doctor at all, so a shared database whose
+    # team has already registered one keeps its routing exactly as it was.
+    if not db.query(DoctorProfile).filter(DoctorProfile.practitioner_type == "ayurveda").first():
+        vaidya_username = os.getenv("AYURVEDA_DOCTOR_USERNAME", "vaidya_opd_201")
+        vaidya_password = os.getenv("AYURVEDA_DOCTOR_PASSWORD", "vaidya@MediK2026")
+        if not db.query(User).filter(User.username == vaidya_username).first():
+            db.add(User(username=vaidya_username, role="doctor", display_name="Vd. R. Kulkarni",
+                        hashed_password=get_password_hash(vaidya_password)))
+        db.add(DoctorProfile(
+            username=vaidya_username, name="Vd. R. Kulkarni", initials="RK",
+            qualifications="B.A.M.S., M.D. (Ayurveda)", title="Consultant Vaidya",
+            practitioner_type="ayurveda", clinic_name="All India Institute of Ayurveda",
+            department="Ayurveda OPD", languages=["hi", "en", "mr"],
+        ))
+        db.flush()
+        copy_default_templates(db, vaidya_username, "ayurveda")
+
     db.commit()
