@@ -1,19 +1,26 @@
-/* Registration, session creation and consent submission (build spec §8). */
+/* Registration, returning-patient lookup, session creation and consent
+   submission (build spec §8). */
 
 import { ENDPOINTS, MOCK_LATENCY, USE_MOCKS, mockDelay } from "./config";
 import { request } from "./http";
-import { mockRegister, mockScanIdentity } from "@/mocks/patients";
+import { mockLookup, mockRegister, mockScanIdentity } from "@/mocks/patients";
 import type {
   ConsentReceipt,
   ConsentSubmission,
   IdentityMethod,
   IdentityScanResult,
+  LookupRequest,
   PatientSessionInfo,
   RegistrationRequest,
 } from "./types";
 
 export const patientApi = {
-  /** Creates the kiosk session. Identity is NOT verified — see mocks/patients. */
+  /**
+   * Registers a first-time patient and opens the kiosk session.
+   * Rejects with `http_409` when an attached ABHA/Aadhaar is already on file —
+   * that patient has been here before and should be looked up instead.
+   * Identity is NOT verified against any national database.
+   */
   async register(payload: RegistrationRequest): Promise<PatientSessionInfo> {
     if (USE_MOCKS) {
       await mockDelay(MOCK_LATENCY.slow);
@@ -21,6 +28,23 @@ export const patientApi = {
     }
 
     return request<PatientSessionInfo>(ENDPOINTS.patient.register, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Finds a returning patient by the card they carry and opens a session.
+   * Rejects with `http_404` when nobody is registered with that number and
+   * `http_422` when it is not a well-formed ABHA/Aadhaar number.
+   */
+  async lookup(payload: LookupRequest): Promise<PatientSessionInfo> {
+    if (USE_MOCKS) {
+      await mockDelay(MOCK_LATENCY.slow);
+      return mockLookup(payload);
+    }
+
+    return request<PatientSessionInfo>(ENDPOINTS.patient.lookup, {
       method: "POST",
       body: JSON.stringify(payload),
     });

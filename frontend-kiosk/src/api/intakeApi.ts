@@ -14,6 +14,7 @@ import {
   type HistoryMode,
   type IntakeResponse,
   type LanguageCode,
+  type QueueInfo,
   type StartIntakeRequest,
   type SubmitAnswerRequest,
 } from "./types";
@@ -29,6 +30,19 @@ interface MockInterview {
 }
 
 const mockInterviews = new Map<string, MockInterview>();
+
+/** The mock bank scripts one line of questioning; pick the most specific. */
+function mockComplaintFor(ids: string[]): string {
+  if (ids.includes("chest_pain")) return "chest_pain";
+  if (ids.some((id) => id === "fever" || id === "cough_cold" || id === "fever_cough")) return "fever_cough";
+  return ids[0] ?? "other";
+}
+
+const COMPLETE: IntakeResponse = {
+  question: null,
+  priority: { priority: "normal", red_flag: false, action: "continue" },
+  complete: true,
+};
 
 export const intakeApi = {
   async getComplaints(language: LanguageCode): Promise<ChiefComplaintOption[]> {
@@ -49,8 +63,8 @@ export const intakeApi = {
    * complaint — "on stating 'chest pain', it probes onset, character..." — so
    * the complaint screen needs a voice path like every other question. Which
    * words mean which complaint is the question service's business, because it
-   * is the same component that decides what line of questioning to open. A
-   * null match is a valid answer, not a failure: the words are carried
+   * is the same component that decides what line of questioning to open. An
+   * empty match is a valid answer, not a failure: the words are carried
    * through as a free-text complaint rather than thrown away.
    */
   async matchComplaint(transcript: string, language: LanguageCode): Promise<ComplaintMatch> {
@@ -68,17 +82,13 @@ export const intakeApi = {
   async startIntake(payload: StartIntakeRequest): Promise<IntakeResponse> {
     if (USE_MOCKS) {
       await mockDelay(MOCK_LATENCY.normal);
+      const complaint = mockComplaintFor(payload.chief_complaints);
       mockInterviews.set(payload.session_id, {
-        complaint: payload.chief_complaint,
+        complaint,
         historyMode: payload.history_mode,
         answers: {},
       });
-      return mockNextQuestion(
-        payload.chief_complaint,
-        payload.history_mode,
-        {},
-        payload.language,
-      );
+      return mockNextQuestion(complaint, payload.history_mode, {}, payload.language);
     }
 
     return request<IntakeResponse>(ENDPOINTS.intake.start, {
@@ -143,7 +153,7 @@ export const intakeApi = {
       if (!interview) {
         // The real service would 404 an unknown session; behave the same way
         // so the screen's error path is exercised.
-        return { question: null, priority: { priority: "normal", red_flag: false, action: "continue" }, complete: true };
+        return COMPLETE;
       }
       interview.answers[payload.question_id] = payload.answer;
       return mockNextQuestion(
@@ -158,6 +168,43 @@ export const intakeApi = {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  },
+
+  /**
+   * DEMO ONLY: answer every remaining question with the engine's default and
+   * finish the interview. The backend records these as sample answers, never
+   * as something the patient said. Shown only when NEXT_PUBLIC_DEMO_SKIP=true.
+   */
+  async autofill(sessionId: string, language: LanguageCode): Promise<IntakeResponse> {
+    if (USE_MOCKS) {
+      await mockDelay(MOCK_LATENCY.normal);
+      mockInterviews.delete(sessionId);
+      return COMPLETE;
+    }
+
+    return request<IntakeResponse>(ENDPOINTS.intake.autofill, {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, language }),
+      timeoutMs: 30000,
+    });
+  },
+
+  /** The patient's OPD token and how many patients are ahead of them. */
+  async getQueue(sessionId: string): Promise<QueueInfo> {
+    if (USE_MOCKS) {
+      await mockDelay(MOCK_LATENCY.fast);
+      const issued = new Date();
+      return {
+        token: 7,
+        queue_date: issued.toISOString().slice(0, 10),
+        issued_at: issued.toISOString(),
+        patients_ahead: 3,
+        doctor_name: "Dr. S. Nair",
+        department: "General Medicine OPD",
+      };
+    }
+
+    return request<QueueInfo>(`${ENDPOINTS.intake.queue}?session_id=${encodeURIComponent(sessionId)}`);
   },
 
   /** Kiosk session ended — drop anything held for it (build spec §6.14). */

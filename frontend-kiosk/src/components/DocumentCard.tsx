@@ -4,11 +4,13 @@ import type { UploadedDocument } from "@/api/types";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Icon } from "./Icon";
 
+/* Every status here is a document that ARRIVED — "failed" means only that
+   it could not be read automatically, so it is amber, never "not sent". */
 const STATUS_PILL: Record<UploadedDocument["status"], string> = {
   received: "mk-pill",
   processing: "mk-pill mk-pill--warning",
   processed: "mk-pill mk-pill--success",
-  failed: "mk-pill mk-pill--danger",
+  failed: "mk-pill mk-pill--warning",
 };
 
 function formatSize(bytes: number): string {
@@ -25,10 +27,10 @@ export function DocumentCard({ document }: { document: UploadedDocument }) {
 
   const statusLabel =
     document.status === "failed"
-      ? t("upload.failed")
+      ? t("documents.statusUnread")
       : document.status === "processed"
-        ? t("upload.sent")
-        : t("documents.uploading");
+        ? t("documents.statusRead")
+        : t("documents.statusReading");
 
   return (
     <li className="mk-doccard">

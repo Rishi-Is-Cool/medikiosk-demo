@@ -1,7 +1,7 @@
 /* Audio in, transcript out — and text in, audio out (build spec §8).
 
-   Whisper, or whatever ASR the team lands on, runs behind this boundary.
-   No model, no key and no prompt appears on the client (§19). */
+   Whisper runs behind this boundary, on the backend. No model, no key and no
+   prompt appears on the client (§19). */
 
 import { ENDPOINTS, MOCK_LATENCY, USE_MOCKS, mockDelay } from "./config";
 import { request } from "./http";
@@ -14,6 +14,16 @@ export interface TranscribeRequest {
   language: LanguageCode;
   audio: Blob;
   duration_ms: number;
+}
+
+/** MediaRecorder hands back webm on Chrome, ogg on Firefox and mp4 on
+ *  Safari; the file name tells the decoder which one it is getting. */
+function audioFileName(blob: Blob): string {
+  const type = blob.type.toLowerCase();
+  if (type.includes("ogg")) return "answer.ogg";
+  if (type.includes("mp4") || type.includes("aac")) return "answer.m4a";
+  if (type.includes("wav")) return "answer.wav";
+  return "answer.webm";
 }
 
 export const speechApi = {
@@ -40,15 +50,18 @@ export const speechApi = {
     }
 
     const form = new FormData();
-    form.append("audio", payload.audio, "answer.webm");
+    form.append("audio", payload.audio, audioFileName(payload.audio));
     form.append("session_id", payload.session_id);
     form.append("question_id", payload.question_id);
     form.append("language", payload.language);
+    form.append("duration_ms", String(Math.round(payload.duration_ms)));
 
+    // Whisper on a CPU takes a few seconds for a sentence, longer for the
+    // very first recording while the model loads.
     return request<TranscriptResult>(ENDPOINTS.speech.transcribe, {
       method: "POST",
       body: form,
-      timeoutMs: 30000,
+      timeoutMs: 60000,
     });
   },
 
@@ -64,7 +77,7 @@ export const speechApi = {
       return null;
     }
 
-    const result = await request<{ audio_url: string }>(ENDPOINTS.speech.synthesize, {
+    const result = await request<{ audio_url: string | null }>(ENDPOINTS.speech.synthesize, {
       method: "POST",
       body: JSON.stringify({ text, language }),
     });

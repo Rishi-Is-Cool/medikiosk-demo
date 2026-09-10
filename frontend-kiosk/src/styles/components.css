@@ -782,6 +782,113 @@
   border-color: var(--primary);
 }
 
+/* --- Identity card example (registration) --------------------------------- */
+
+.mk-idgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.mk-idexample {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+}
+
+.mk-idexample__card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.mk-idexample__card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The spotlight: everything outside the box is dimmed, so the eye lands on
+   the number and nowhere else. */
+.mk-idexample__box {
+  position: absolute;
+  border: 3px solid var(--warning);
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 30%);
+  animation: mk-idexample-pulse 1.6s var(--ease) infinite;
+}
+
+.mk-idexample__sample {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  background: var(--emergency);
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@keyframes mk-idexample-pulse {
+  50% {
+    border-color: var(--warning-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-idexample__box {
+    animation: none;
+  }
+}
+
+.mk-idinput {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  letter-spacing: 0.08em;
+}
+
+.mk-divided {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+/* --- OPD token (completion) ------------------------------------------------ */
+
+.mk-token {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-5);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+
+.mk-token__number {
+  font-size: clamp(64px, 12vw, 120px);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-token__ahead {
+  font-size: var(--fs-lg);
+  font-weight: var(--weight-medium);
+  color: var(--text);
+}
+
 /* --- Narrow screens ------------------------------------------------------- */
 
 @media (max-width: 900px) {

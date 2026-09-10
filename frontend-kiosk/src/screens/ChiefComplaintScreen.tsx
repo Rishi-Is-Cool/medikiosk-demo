@@ -6,7 +6,7 @@ import { intakeApi } from "@/api/intakeApi";
 import type { ChiefComplaintOption } from "@/api/types";
 import { ChoiceTile } from "@/components/ChoiceTile";
 import { ErrorState } from "@/components/ErrorState";
-import { Icon, type IconName } from "@/components/Icon";
+import { Icon, isIconName } from "@/components/Icon";
 import { BackButton, KioskScreen } from "@/components/KioskScreen";
 import { ProcessingState } from "@/components/ProcessingState";
 import { SourceChip } from "@/components/SourceChip";
@@ -14,19 +14,23 @@ import { TextAnswer } from "@/components/TextAnswer";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { usePatientSession } from "@/context/PatientSession";
 import { useJourneyGuard } from "@/hooks/useJourneyGuard";
+import { speakChoice } from "@/hooks/useSpeech";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { ROUTES } from "@/lib/journey";
 
 /**
  * Build spec §6.5, and the problem statement's own opening move.
  *
+ * Patients rarely come with one problem: chest pain with a headache, fever
+ * with a cough. Every complaint they tick is sent to the question service,
+ * which builds a single interview that covers all of them without asking the
+ * shared questions (how long, how bad) twice.
+ *
  * The complaint list comes from the question service, not from a constant in
- * this file. And the patient can simply say what is wrong — the problem
- * statement's example starts with the patient *stating* "chest pain" and the
- * engine probing from there, so this screen carries a microphone like every
- * question screen does. Which words mean which complaint is the question
- * service's decision; an unmatched answer is kept as free text rather than
- * thrown away, because the patient still said something true.
+ * this file. The patient can also simply say what is wrong: the service maps
+ * the words onto the list — possibly several at once — and the patient checks
+ * the ticks before continuing. Unmatched words are kept as the patient's own
+ * description, because they still said something true.
  */
 export function ChiefComplaintScreen() {
   const router = useRouter();
@@ -36,11 +40,15 @@ export function ChiefComplaintScreen() {
 
   const [options, setOptions] = useState<ChiefComplaintOption[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
   const [showOther, setShowOther] = useState(false);
   const [spoken, setSpoken] = useState<string | null>(null);
+  const [matchedFromVoice, setMatchedFromVoice] = useState(false);
 
   const voiceAllowed = consentGranted.includes("voice");
+  // The question service's list carries its own "other" entry; the mock's does not.
+  const serviceHasOther = options?.some((option) => option.id === "other") ?? false;
 
   useEffect(() => {
     if (!ready) return;
@@ -61,55 +69,89 @@ export function ChiefComplaintScreen() {
     };
   }, [ready, language]);
 
-  const choose = useCallback(
-    (id: string, label: string, text?: string) => {
-      dispatch({ type: "setComplaint", complaint: { id, label, text } });
-      router.push(ROUTES.intake);
-    },
-    [dispatch, router],
-  );
+  function toggle(id: string, label: string) {
+    const on = !selected.includes(id);
+    if (on) speakChoice(label, language);
+    setSelected((current) => (on ? [...current, id] : current.filter((c) => c !== id)));
+    if (id === "other") setShowOther(on);
+  }
 
-  /* A spoken complaint goes to the question service to be matched. A hit
-     starts that complaint's line of questioning; a miss keeps the words. */
+  const words = (freeText.trim() || spoken || "").trim();
+  const canContinue = selected.length > 0 || words.length > 0;
+
+  function proceed() {
+    if (!canContinue) return;
+    const ids = selected.length > 0 ? selected : ["other"];
+    const label = ids
+      .map((id) => options?.find((o) => o.id === id)?.label ?? (id === "other" ? t("complaint.other") : id))
+      .join(", ");
+    dispatch({ type: "setComplaint", complaint: { ids, label, text: words || undefined } });
+    router.push(ROUTES.intake);
+  }
+
+  /* Spoken words go to the question service to be matched. Hits are ticked
+     for the patient to check; a miss keeps the words as their description. */
   const handleSpoken = useCallback(
     async (transcript: string) => {
+      setSpoken(transcript);
       try {
         const match = await intakeApi.matchComplaint(transcript, language);
-        if (match.complaint) {
-          choose(match.complaint.id, match.complaint.label, transcript);
+        const ids = (match.complaints ?? (match.complaint ? [match.complaint] : [])).map((c) => c.id);
+        if (ids.length > 0) {
+          setSelected((current) => Array.from(new Set([...current, ...ids])));
+          setMatchedFromVoice(true);
           return;
         }
       } catch (error) {
         console.warn("[complaints] match failed", error);
       }
-      // Unmatched, or the matcher is unavailable: show what we heard and let
-      // the patient pick the closest, or carry on in their own words.
-      setSpoken(transcript);
+      setMatchedFromVoice(false);
+      setSelected((current) => (current.includes("other") ? current : [...current, "other"]));
+      setFreeText((current) => current || transcript);
+      setShowOther(true);
     },
-    [language, choose],
+    [language],
   );
 
   if (!ready) return null;
+
+  const otherTile = !serviceHasOther && (
+    <ChoiceTile
+      icon="dots"
+      label={t("complaint.other")}
+      sub={t("complaint.otherSub")}
+      selected={selected.includes("other")}
+      onClick={() => toggle("other", t("complaint.other"))}
+    />
+  );
 
   return (
     <KioskScreen
       step="complaint"
       align="top"
       actions={
-        <BackButton
-          onClick={() => {
-            if (spoken) return setSpoken(null);
-            if (showOther) return setShowOther(false);
-            router.push(ROUTES.mode);
-          }}
-          label={t("common.back")}
-        />
+        <>
+          <BackButton onClick={() => router.push(ROUTES.mode)} label={t("common.back")} />
+          <div className="mk-actionbar__spacer" />
+          {selected.length > 0 && (
+            <span className="mk-pill">{t("complaint.selectedCount", { count: selected.length })}</span>
+          )}
+          <button
+            type="button"
+            className="mk-btn mk-btn--primary mk-btn--lg"
+            disabled={!canContinue}
+            onClick={proceed}
+          >
+            {t("common.continue")}
+            <Icon name="chevronRight" />
+          </button>
+        </>
       }
     >
       <div className="mk-container mk-stack mk-stack--loose">
         <div className="mk-stack mk-stack--tight mk-center">
           <h1 className="mk-h1">{t("complaint.title")}</h1>
-          <p className="mk-lead">{t("complaint.subtitle")}</p>
+          <p className="mk-lead">{t("complaint.subtitleMulti")}</p>
         </div>
 
         {failed && <ErrorState title={t("error.title")} message={t("error.offline")} />}
@@ -123,51 +165,28 @@ export function ChiefComplaintScreen() {
               <SourceChip source="patient_spoken" />
             </div>
             <p className="mk-transcript__text">{spoken}</p>
-            <p className="mk-help">{t("complaint.noMatch")}</p>
-            <button
-              type="button"
-              className="mk-btn mk-btn--secondary"
-              onClick={() => choose("other", t("complaint.other"), spoken)}
-            >
-              <Icon name="chevronRight" />
-              {t("complaint.continueOwn")}
+            <p className="mk-help">{t(matchedFromVoice ? "complaint.heardMatched" : "complaint.noMatch")}</p>
+            <button type="button" className="mk-btn mk-btn--ghost" onClick={() => setSpoken(null)}>
+              <Icon name="mic" />
+              {t("intake.recordAgain")}
             </button>
           </div>
         )}
 
-        {options && !showOther && (
-          <>
-            <div className="mk-choices mk-choices--wide">
-              {options.map((option) => (
-                <ChoiceTile
-                  key={option.id}
-                  icon={option.icon as IconName}
-                  label={option.label}
-                  showCheck={false}
-                  onClick={() => choose(option.id, option.label, spoken ?? undefined)}
-                />
-              ))}
+        {options && (
+          <div className="mk-choices mk-choices--wide">
+            {options.map((option) => (
               <ChoiceTile
-                icon="dots"
-                label={t("complaint.other")}
-                sub={t("complaint.otherSub")}
-                showCheck={false}
-                onClick={() => setShowOther(true)}
+                key={option.id}
+                icon={isIconName(option.icon) ? option.icon : "stethoscope"}
+                label={option.label}
+                sub={option.id === "other" ? t("complaint.otherSub") : undefined}
+                selected={selected.includes(option.id)}
+                onClick={() => toggle(option.id, option.label)}
               />
-            </div>
-
-            {voiceAllowed && patient && !spoken && (
-              <div className="mk-answer__voice">
-                <p className="mk-help mk-center">{t("complaint.speak")}</p>
-                <VoiceRecorder
-                  sessionId={patient.session_id}
-                  questionId="chief_complaint"
-                  onAccept={(transcript) => void handleSpoken(transcript)}
-                  onTypeInstead={() => setShowOther(true)}
-                />
-              </div>
-            )}
-          </>
+            ))}
+            {otherTile}
+          </div>
         )}
 
         {showOther && (
@@ -179,9 +198,28 @@ export function ChiefComplaintScreen() {
             <TextAnswer
               value={freeText}
               onChange={setFreeText}
-              autoFocus
-              onSubmit={() => choose("other", t("complaint.other"), freeText.trim())}
-              onCancel={() => setShowOther(false)}
+              autoFocus={!spoken}
+              onSubmit={proceed}
+              onCancel={() => {
+                setShowOther(false);
+                setFreeText("");
+                setSelected((current) => current.filter((c) => c !== "other"));
+              }}
+            />
+          </div>
+        )}
+
+        {options && voiceAllowed && patient && !spoken && (
+          <div className="mk-answer__voice">
+            <p className="mk-help mk-center">{t("complaint.speak")}</p>
+            <VoiceRecorder
+              sessionId={patient.session_id}
+              questionId="chief_complaint"
+              onAccept={(transcript) => void handleSpoken(transcript)}
+              onTypeInstead={() => {
+                setShowOther(true);
+                setSelected((current) => (current.includes("other") ? current : [...current, "other"]));
+              }}
             />
           </div>
         )}

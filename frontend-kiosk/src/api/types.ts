@@ -11,6 +11,9 @@
 
 export type IdentityMethod = "abha" | "aadhaar" | "new";
 
+/** The two cards a returning patient can be found by. */
+export type IdentityCard = "abha" | "aadhaar";
+
 /** What the kiosk knows about who is sitting in front of it.
  *  Deliberately minimal: the kiosk holds no clinical record of its own. */
 export interface PatientSessionInfo {
@@ -19,9 +22,13 @@ export interface PatientSessionInfo {
   display_name: string;
   identity_method: IdentityMethod;
   /** Masked for display. The kiosk never holds a full ABHA/Aadhaar number. */
-  masked_id?: string;
+  masked_id?: string | null;
   age?: number;
   sex?: string;
+  /** True when the patient was found by ID rather than newly registered. */
+  returning?: boolean;
+  /** YYYY-MM-DD of the previous visit, when there was one. */
+  last_visit?: string | null;
 }
 
 /**
@@ -34,14 +41,17 @@ export interface PatientSessionInfo {
  */
 export interface IdentityScanResult {
   identity_method: IdentityMethod;
-  /** The number as read. Never presented as verified — nothing is verified. */
-  identifier: string;
-  confidence: number;
+  /** The number as read, or null when the card could not be read. Never
+   *  presented as verified — nothing is verified. */
+  identifier: string | null;
+  name?: string | null;
+  confidence?: number;
 }
 
+/** First-time registration. The ABHA/Aadhaar numbers are optional: attaching
+ *  one now is what lets the patient be found by it on their next visit. */
 export interface RegistrationRequest {
   identity_method: IdentityMethod;
-  /** ABHA address / Aadhaar last digits / typed name, per method. */
   identifier?: string;
   language: LanguageCode;
   new_patient?: {
@@ -50,6 +60,15 @@ export interface RegistrationRequest {
     sex: string;
     phone?: string;
   };
+  abha_number?: string;
+  aadhaar_number?: string;
+}
+
+/** Returning patient: find their record by the card they carry. */
+export interface LookupRequest {
+  identity_method: IdentityCard;
+  identifier: string;
+  language: LanguageCode;
 }
 
 /* --- Language ------------------------------------------------------------- */
@@ -94,11 +113,15 @@ export interface ChiefComplaintOption {
  *
  * The complaint taxonomy belongs to the question service — it is the same
  * component that decides which line of questioning a complaint opens. The
- * kiosk sends words and renders the answer. When nothing matches, the spoken
- * text is carried through as a free-text complaint rather than discarded.
+ * kiosk sends words and renders the answer. A patient may name several
+ * problems in one breath ("fever and a headache"), so every match comes back.
+ * When nothing matches, the spoken text is carried through as a free-text
+ * complaint rather than discarded.
  */
 export interface ComplaintMatch {
+  /** The first match, kept for older callers. */
   complaint: ChiefComplaintOption | null;
+  complaints?: ChiefComplaintOption[];
   transcript: string;
 }
 
@@ -190,7 +213,8 @@ export interface IntakeResponse {
 export interface StartIntakeRequest {
   session_id: string;
   history_mode: HistoryMode;
-  chief_complaint: string;
+  /** Every complaint the patient chose — the interview covers all of them. */
+  chief_complaints: string[];
   chief_complaint_text?: string;
   language: LanguageCode;
 }
@@ -209,6 +233,8 @@ export interface AnswerPayload {
   values?: string[];
   /** Free text, or the accepted transcript for a spoken answer. */
   text?: string;
+  /** Links a spoken answer to the stored transcript it came from. */
+  transcript_id?: string;
 }
 
 /** Matches the provenance vocabulary in tokens.css (.mk-chip-src). */
@@ -220,9 +246,25 @@ export type AnswerSource =
   | "prior_encounter"
   | "clinician";
 
+/** The patient's OPD token, counted live by the backend. */
+export interface QueueInfo {
+  token: number;
+  /** YYYY-MM-DD, the hospital's (India) calendar day the token belongs to. */
+  queue_date: string;
+  /** ISO timestamp (UTC) when the token was issued. */
+  issued_at: string;
+  /** Same doctor, same day, earlier token, not yet seen. */
+  patients_ahead: number;
+  doctor_name?: string | null;
+  department?: string | null;
+  priority?: string;
+}
+
 /* --- Speech --------------------------------------------------------------- */
 
 export interface TranscriptResult {
+  /** Present when the speech service kept the transcript as evidence. */
+  transcript_id?: string;
   transcript: string;
   language: LanguageCode;
   /** 0..1. The kiosk uses this only to decide how firmly to ask for
@@ -239,6 +281,8 @@ export interface ExtractionResult {
   summary: string;
   fields: ExtractedField[];
   source: AnswerSource;
+  /** The options a spoken answer was mapped onto, when it was. */
+  values?: string[];
 }
 
 export interface ExtractedField {

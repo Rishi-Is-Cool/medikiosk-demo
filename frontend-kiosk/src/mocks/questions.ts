@@ -80,18 +80,13 @@ export function mockComplaints(language: LanguageCode): ChiefComplaintOption[] {
 export function mockMatchComplaint(transcript: string, language: LanguageCode): ComplaintMatch {
   const text = transcript.toLowerCase();
 
-  const hit = COMPLAINTS.find((c) =>
+  const complaints = COMPLAINTS.filter((c) =>
     resolveLocalized(c.keywords, language)
       .split(/\s+/)
       .some((word) => word.length > 2 && text.includes(word.toLowerCase())),
-  );
+  ).map((hit) => ({ id: hit.id, label: resolveLocalized(hit.label, language), icon: hit.icon }));
 
-  return {
-    complaint: hit
-      ? { id: hit.id, label: resolveLocalized(hit.label, language), icon: hit.icon }
-      : null,
-    transcript,
-  };
+  return { complaint: complaints[0] ?? null, complaints, transcript };
 }
 
 /* --- General Medicine question bank --------------------------------------- */

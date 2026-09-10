@@ -39,6 +39,10 @@ export function IdentityScanner({
 
     try {
       const result = await patientApi.scanIdentity(method, file);
+      if (!result.identifier) {
+        setFailed(true);
+        return;
+      }
       onScanned(result.identifier);
     } catch (error) {
       console.warn("[identity] scan failed", error);

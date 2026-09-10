@@ -1,46 +1,48 @@
 /* ==========================================================================
    The one place endpoints are configured (build spec §8).
 
-   Nothing else in the app may reference a URL. When the backend team hands
-   over real routes, they are filled in here and MOCKS is switched off — no
-   screen or component changes.
+   Nothing else in the app may reference a URL. The paths below are the
+   backend's kiosk routes (backend/app/api/integration.py); switching
+   NEXT_PUBLIC_USE_MOCKS off points every screen at them with no other change.
    ========================================================================== */
 
 /** Mock mode is the default. Set NEXT_PUBLIC_USE_MOCKS=false once the real
- *  backend is reachable, then flip endpoints on one at a time. */
+ *  backend is reachable. */
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== "false";
 
-/** Base URL of the team's backend. Empty until they publish one. */
+/** Base URL of the team's backend. "/backend" goes through this app's own
+ *  rewrite (next.config.ts), so the patient's phone reaches it too. */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
-/**
- * PLACEHOLDER PATHS — not agreed with the backend team yet.
- * Build spec §8: "Do not invent final endpoint URLs." These exist so the
- * request code has a shape to compile against; every one of them is an
- * integration point to confirm before switching USE_MOCKS off.
- */
+/** Shows the "skip with sample answers" control on the question screen, so a
+ *  live demo can jump straight to document upload. Never enable for patients. */
+export const DEMO_SKIP = process.env.NEXT_PUBLIC_DEMO_SKIP === "true";
+
 export const ENDPOINTS = {
   patient: {
-    register: "/patient/register", // TODO(backend): confirm path + payload
-    session: "/patient/session", // TODO(backend): confirm path + payload
-    consent: "/patient/consent", // TODO(backend): confirm path + payload
-    scanIdentity: "/patient/scan-identity", // TODO(backend): OCR of an ABHA/Aadhaar card
+    register: "/patient/register",
+    lookup: "/patient/lookup",
+    session: "/patient/session",
+    consent: "/patient/consent",
+    scanIdentity: "/patient/scan-identity",
   },
   intake: {
-    start: "/intake/start", // TODO(backend): confirm path + payload
-    question: "/intake/question", // TODO(backend): confirm path + payload
-    answer: "/intake/answer", // TODO(backend): confirm path + payload
-    complaints: "/intake/complaints", // TODO(backend): confirm path + payload
-    matchComplaint: "/intake/match-complaint", // TODO(backend): spoken words -> complaint id
+    start: "/intake/start",
+    question: "/intake/question",
+    answer: "/intake/answer",
+    autofill: "/intake/autofill",
+    queue: "/intake/queue",
+    complaints: "/intake/complaints",
+    matchComplaint: "/intake/match-complaint",
   },
   speech: {
-    transcribe: "/speech/transcribe", // TODO(backend): Whisper stays server-side
-    synthesize: "/speech/synthesize", // TODO(backend): TTS service, if any
+    transcribe: "/speech/transcribe", // Whisper stays server-side
+    synthesize: "/speech/synthesize",
   },
   document: {
-    createSession: "/documents/upload-session", // TODO(backend): confirm
+    createSession: "/documents/upload-session",
     sessionStatus: "/documents/upload-session/", // + token
-    upload: "/documents/upload-session/", // + token + /documents
+    upload: "/documents/upload-session/", // + token + /documents or /connect
   },
 } as const;
 
@@ -49,8 +51,8 @@ export const ENDPOINTS = {
  *
  * The QR flow is the one place the kiosk genuinely needs a second device to
  * talk to something, so the mock lives on the server instead of in memory.
- * It is a stand-in for the team's document service and is deleted the day
- * that service exists — it stores metadata only and never the file bytes.
+ * It is a stand-in for the team's document service and is used only in mock
+ * mode — it stores metadata only and never the file bytes.
  */
 export const MOCK_DOCUMENT_API = "/api/mock/upload-sessions";
 

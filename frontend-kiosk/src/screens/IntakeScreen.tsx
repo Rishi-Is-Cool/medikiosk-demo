@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DEMO_SKIP } from "@/api/config";
 import { intakeApi } from "@/api/intakeApi";
 import type { AnswerPayload, ExtractionResult, IntakeResponse } from "@/api/types";
 import { ErrorState } from "@/components/ErrorState";
@@ -16,6 +17,7 @@ import { TouchOptions, type OptionMode } from "@/components/TouchOptions";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { usePatientSession } from "@/context/PatientSession";
 import { useJourneyGuard } from "@/hooks/useJourneyGuard";
+import { speakChoice } from "@/hooks/useSpeech";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { ROUTES } from "@/lib/journey";
 
@@ -25,8 +27,9 @@ import { ROUTES } from "@/lib/journey";
  * It renders whatever question the engine returns and submits whatever the
  * patient answers. It contains no question list, no ordering, no branching
  * and no notion of what any answer means — every one of those lives behind
- * intakeApi. Adding a question, reordering the interview or plugging in the
- * AYUSH set changes nothing in this file.
+ * intakeApi. The engine remembers every earlier answer and picks the next
+ * question from them; adding a question, reordering the interview or
+ * plugging in the AYUSH set changes nothing in this file.
  */
 export function IntakeScreen() {
   const router = useRouter();
@@ -38,6 +41,7 @@ export function IntakeScreen() {
   const voiceAllowed = consentGranted.includes("voice");
 
   const [phase, setPhase] = useState<"loading" | "question" | "submitting" | "error">("loading");
+  const [skipping, setSkipping] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [typing, setTyping] = useState(false);
   const [text, setText] = useState("");
@@ -82,7 +86,7 @@ export function IntakeScreen() {
       .startIntake({
         session_id: patient.session_id,
         history_mode: session.historyMode ?? "general_medicine",
-        chief_complaint: complaint.id,
+        chief_complaints: complaint.ids,
         chief_complaint_text: complaint.text,
         language,
       })
@@ -181,6 +185,21 @@ export function IntakeScreen() {
     [patient, question, language],
   );
 
+  /** DEMO ONLY (NEXT_PUBLIC_DEMO_SKIP): sample answers for the rest. */
+  const demoSkip = useCallback(async () => {
+    if (!patient) return;
+    setSkipping(true);
+    setPhase("submitting");
+    try {
+      applyResponse(await intakeApi.autofill(patient.session_id, language));
+    } catch (error) {
+      console.warn("[intake] demo autofill failed", error);
+      setPhase("error");
+    } finally {
+      setSkipping(false);
+    }
+  }, [patient, language, applyResponse]);
+
   if (!ready) return null;
 
   /* --- Render -------------------------------------------------------------- */
@@ -247,6 +266,11 @@ export function IntakeScreen() {
         <>
           {back}
           <div className="mk-actionbar__spacer" />
+          {DEMO_SKIP && phase === "question" && (
+            <button type="button" className="mk-btn mk-btn--ghost" onClick={demoSkip}>
+              {t("intake.demoSkip")}
+            </button>
+          )}
           {mode === "multi" && phase === "question" && showOptions && (
             <button
               type="button"
@@ -266,7 +290,7 @@ export function IntakeScreen() {
 
         <QuestionCard question={question} autoRead>
           {phase === "submitting" ? (
-            <ProcessingState label={t("intake.savingAnswer")} />
+            <ProcessingState label={t(skipping ? "intake.demoSkipping" : "intake.savingAnswer")} />
           ) : (
             <div className="mk-answer">
               {showOptions && (
@@ -275,6 +299,9 @@ export function IntakeScreen() {
                   mode={mode}
                   selected={selected}
                   scaleTone={question.scale_tone}
+                  onChoose={(option, chosen) => {
+                    if (chosen) speakChoice(option.label, language);
+                  }}
                   onSelect={(update) => {
                     setSelected(update);
                     // Single-choice commits on tap; multi-select waits for the
@@ -304,8 +331,16 @@ export function IntakeScreen() {
                     sessionId={patient!.session_id}
                     questionId={question.question_id}
                     onTranscribed={extractSpoken}
-                    onAccept={(transcript, extraction) =>
-                      submit({ source: "patient_spoken", text: transcript }, extraction)
+                    onAccept={(transcript, extraction, transcriptId) =>
+                      submit(
+                        {
+                          source: "patient_spoken",
+                          text: transcript,
+                          values: extraction?.values,
+                          transcript_id: transcriptId,
+                        },
+                        extraction,
+                      )
                     }
                     onTypeInstead={() => setTyping(true)}
                     onPhaseChange={(voicePhase) => setVoiceIdle(voicePhase === "idle")}

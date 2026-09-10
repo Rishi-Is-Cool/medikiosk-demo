@@ -17,6 +17,11 @@ export type IconName =
   | "stomach"
   | "head"
   | "lungs"
+  | "wind"
+  | "droplet"
+  | "bone"
+  | "dizzy"
+  | "skin"
   | "dots"
   | "document"
   | "camera"
@@ -89,6 +94,31 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M12 3v9" />
       <path d="M12 8c-1.8 0-2.5 1-2.5 2.4V12c0 2-4.5 2.3-4.5 6.2C5 20.2 6.2 21 7.5 21c1.6 0 2-1.2 2-2.4V13" />
       <path d="M12 8c1.8 0 2.5 1 2.5 2.4V12c0 2 4.5 2.3 4.5 6.2 0 2-1.2 2.8-2.5 2.8-1.6 0-2-1.2-2-2.4V13" />
+    </>
+  ),
+  wind: (
+    <>
+      <path d="M3 8h10a3 3 0 1 0-3-3" />
+      <path d="M3 12h15a3 3 0 1 1-3 3" />
+      <path d="M3 16h6" />
+    </>
+  ),
+  droplet: <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />,
+  bone: (
+    <path d="M8.2 4.2a2.6 2.6 0 0 0-4 3.2 2.6 2.6 0 0 0 1.4 3.6L13 18.4a2.6 2.6 0 0 0 3.6 1.4 2.6 2.6 0 0 0 3.2-4 2.6 2.6 0 0 0-1.4-3.6L11 4.8a2.6 2.6 0 0 0-2.8-.6z" />
+  ),
+  dizzy: (
+    <>
+      <path d="M12 12a1.5 1.5 0 1 1 1.5-1.5 3.5 3.5 0 1 1-3.5-3.5 5.5 5.5 0 1 1-5.5 5.5" />
+      <path d="M18.5 4.5l1 1M20 8h1" />
+    </>
+  ),
+  skin: (
+    <>
+      <path d="M4 20c1.5-6 6-10 16-10" />
+      <circle cx="9" cy="7" r="1.3" />
+      <circle cx="14" cy="5" r="1.3" />
+      <circle cx="17.5" cy="15" r="1.3" />
     </>
   ),
   dots: (
@@ -183,6 +213,11 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
 };
+
+/** Icon names arrive from the question service as plain strings. */
+export function isIconName(name: string | undefined): name is IconName {
+  return !!name && Object.prototype.hasOwnProperty.call(PATHS, name);
+}
 
 export function Icon({
   name,

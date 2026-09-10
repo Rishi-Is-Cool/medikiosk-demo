@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { BackButton, KioskScreen } from "@/components/KioskScreen";
 import { ChoiceTile } from "@/components/ChoiceTile";
 import { usePatientSession } from "@/context/PatientSession";
+import { speakChoice } from "@/hooks/useSpeech";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { LANGUAGES } from "@/i18n/languages";
 import { ROUTES } from "@/lib/journey";
@@ -43,6 +44,8 @@ export function LanguageSelectScreen() {
               selected={option.code === language}
               showCheck={false}
               onClick={() => {
+                // Said in the chosen language's own voice: "हिन्दी", "मराठी".
+                speakChoice(option.native, option.code);
                 dispatch({ type: "setLanguage", language: option.code });
                 router.push(ROUTES.register);
               }}

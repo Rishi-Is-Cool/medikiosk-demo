@@ -2,8 +2,8 @@
 
    The kiosk never receives, stores or interprets a document. It creates a
    short-lived upload session, shows the QR, and polls for status. The phone
-   posts the file; the document service stores the bytes in object storage and
-   owns all OCR and extraction. */
+   posts the file; the document service stores it and owns all OCR and
+   extraction. */
 
 import { ENDPOINTS, MOCK_DOCUMENT_API, USE_MOCKS, publicOrigin } from "./config";
 import { request } from "./http";
@@ -15,20 +15,20 @@ export function uploadUrlFor(token: string): string {
   return `${publicOrigin()}/upload/${token}`;
 }
 
+/** The backend answers with a path relative to itself; the QR needs the
+ *  kiosk's own public address, which only the kiosk knows. */
+function withPublicUrl(session: UploadSession): UploadSession {
+  return { ...session, upload_url: uploadUrlFor(session.token) };
+}
+
 export const documentApi = {
   async createUploadSession(sessionId: string, forceNew = false): Promise<UploadSession> {
-    if (USE_MOCKS) {
-      const session = await request<UploadSession>(MOCK_DOCUMENT_API, {
-        method: "POST",
-        body: JSON.stringify({ session_id: sessionId, force_new: forceNew }),
-      });
-      return { ...session, upload_url: uploadUrlFor(session.token) };
-    }
-
-    return request<UploadSession>(ENDPOINTS.document.createSession, {
+    const path = USE_MOCKS ? MOCK_DOCUMENT_API : ENDPOINTS.document.createSession;
+    const session = await request<UploadSession>(path, {
       method: "POST",
-      body: JSON.stringify({ session_id: sessionId }),
+      body: JSON.stringify({ session_id: sessionId, force_new: forceNew }),
     });
+    return withPublicUrl(session);
   },
 
   async getUploadSession(token: string): Promise<UploadSession> {
@@ -36,8 +36,7 @@ export const documentApi = {
       ? `${MOCK_DOCUMENT_API}/${token}`
       : `${ENDPOINTS.document.sessionStatus}${token}`;
 
-    const session = await request<UploadSession>(path);
-    return { ...session, upload_url: uploadUrlFor(session.token) };
+    return withPublicUrl(await request<UploadSession>(path));
   },
 
   /** Called from the patient's phone, not the kiosk. */
@@ -65,7 +64,9 @@ export const documentApi = {
 
   /** The phone announcing itself, so the kiosk can stop saying "waiting". */
   async markConnected(token: string): Promise<void> {
-    if (!USE_MOCKS) return;
-    await request(`${MOCK_DOCUMENT_API}/${token}/connect`, { method: "POST" });
+    const path = USE_MOCKS
+      ? `${MOCK_DOCUMENT_API}/${token}/connect`
+      : `${ENDPOINTS.document.upload}${token}/connect`;
+    await request(path, { method: "POST" });
   },
 };

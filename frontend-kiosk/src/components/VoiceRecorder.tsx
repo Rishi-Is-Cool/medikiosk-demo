@@ -33,7 +33,8 @@ export function VoiceRecorder({
   sessionId: string;
   questionId: string;
   onTranscribed?: (transcript: string) => Promise<ExtractionResult | null>;
-  onAccept: (transcript: string, extraction: ExtractionResult | null) => void;
+  /** `transcriptId` links the confirmed answer to the stored transcript. */
+  onAccept: (transcript: string, extraction: ExtractionResult | null, transcriptId?: string) => void;
   onTypeInstead?: () => void;
   /** Lets the screen show only the controls that matter right now — the touch
    *  options are noise while a spoken answer is being confirmed. */
@@ -44,6 +45,7 @@ export function VoiceRecorder({
   const recorder = useVoiceRecorder();
   const [phase, setPhase] = useState<Phase>("idle");
   const [transcript, setTranscript] = useState("");
+  const [transcriptId, setTranscriptId] = useState<string | undefined>(undefined);
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
   const [failure, setFailure] = useState<"mic" | "speech" | null>(null);
   const liveRef = useRef(true);
@@ -73,6 +75,7 @@ export function VoiceRecorder({
   useEffect(() => {
     setPhase("idle");
     setTranscript("");
+    setTranscriptId(undefined);
     setExtraction(null);
     setFailure(null);
   }, [questionId]);
@@ -112,6 +115,7 @@ export function VoiceRecorder({
       if (!liveRef.current) return;
 
       setTranscript(result.transcript);
+      setTranscriptId(result.transcript_id);
       setExtraction(structured);
       setPhase("ready");
     } catch (error) {
@@ -211,7 +215,7 @@ export function VoiceRecorder({
           <button
             type="button"
             className="mk-btn mk-btn--primary mk-btn--lg"
-            onClick={() => onAccept(transcript, extraction)}
+            onClick={() => onAccept(transcript, extraction, transcriptId)}
           >
             <Icon name="check" />
             {t("intake.yesCorrect")}

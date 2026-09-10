@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { HistoryMode } from "@/api/types";
 import { ChoiceTile } from "@/components/ChoiceTile";
 import { BackButton, KioskScreen } from "@/components/KioskScreen";
 import { usePatientSession } from "@/context/PatientSession";
 import { useJourneyGuard } from "@/hooks/useJourneyGuard";
+import { speakChoice } from "@/hooks/useSpeech";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { ROUTES } from "@/lib/journey";
 
@@ -19,11 +21,17 @@ import { ROUTES } from "@/lib/journey";
  */
 export function ConsultationTypeScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { dispatch } = usePatientSession();
   const ready = useJourneyGuard("consent");
 
   if (!ready) return null;
+
+  const choose = (mode: HistoryMode, label: string) => {
+    speakChoice(label, language);
+    dispatch({ type: "setHistoryMode", mode });
+    router.push(ROUTES.complaint);
+  };
 
   return (
     <KioskScreen
@@ -42,20 +50,14 @@ export function ConsultationTypeScreen() {
             label={t("mode.general")}
             sub={t("mode.generalSub")}
             showCheck={false}
-            onClick={() => {
-              dispatch({ type: "setHistoryMode", mode: "general_medicine" });
-              router.push(ROUTES.complaint);
-            }}
+            onClick={() => choose("general_medicine", t("mode.general"))}
           />
           <ChoiceTile
             icon="leaf"
             label={t("mode.ayush")}
             sub={t("mode.ayushSub")}
             showCheck={false}
-            onClick={() => {
-              dispatch({ type: "setHistoryMode", mode: "ayush" });
-              router.push(ROUTES.complaint);
-            }}
+            onClick={() => choose("ayush", t("mode.ayush"))}
           />
         </div>
 

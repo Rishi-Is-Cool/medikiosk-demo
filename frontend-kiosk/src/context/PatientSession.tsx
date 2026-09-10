@@ -39,9 +39,11 @@ export interface StoredAnswer {
 }
 
 export interface ChiefComplaint {
-  id: string;
+  /** Every complaint the patient chose — they may have more than one. */
+  ids: string[];
+  /** The chosen labels, joined for display. */
   label: string;
-  /** Free text, when the patient chose "something else". */
+  /** The patient's own words, spoken or typed, when they gave any. */
   text?: string;
 }
 

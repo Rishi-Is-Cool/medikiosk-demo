@@ -45,6 +45,7 @@ export function TouchOptions({
   mode,
   selected,
   onSelect,
+  onChoose,
   scaleTone = "severity",
   disabled = false,
 }: {
@@ -52,6 +53,9 @@ export function TouchOptions({
   mode: OptionMode;
   selected: string[];
   onSelect: (update: SelectionUpdate) => void;
+  /** Fires on every tap — `chosen` is false when a multi-select option is
+   *  being un-ticked. Used to read the choice aloud. */
+  onChoose?: (option: QuestionOption, chosen: boolean) => void;
   scaleTone?: ScaleTone;
   disabled?: boolean;
 }) {
@@ -63,6 +67,7 @@ export function TouchOptions({
         options={options}
         selected={selected}
         onSelect={onSelect}
+        onChoose={onChoose}
         tone={scaleTone}
         disabled={disabled}
       />
@@ -71,9 +76,11 @@ export function TouchOptions({
 
   const toggle = (option: QuestionOption) => {
     if (mode === "single") {
+      onChoose?.(option, true);
       onSelect([option.value]);
       return;
     }
+    onChoose?.(option, !selected.includes(option.value));
     onSelect((current) => toggleSelection(current, option, options));
   };
 
@@ -110,12 +117,14 @@ function ScaleOptions({
   options,
   selected,
   onSelect,
+  onChoose,
   tone,
   disabled,
 }: {
   options: QuestionOption[];
   selected: string[];
   onSelect: (update: SelectionUpdate) => void;
+  onChoose?: (option: QuestionOption, chosen: boolean) => void;
   tone: ScaleTone;
   disabled: boolean;
 }) {
@@ -141,7 +150,10 @@ function ScaleOptions({
             data-selected={selected.includes(option.value)}
             style={{ "--step-colour": colourFor(index) } as React.CSSProperties}
             disabled={disabled}
-            onClick={() => onSelect([option.value])}
+            onClick={() => {
+              onChoose?.(option, true);
+              onSelect([option.value]);
+            }}
           >
             <span className="mk-scale__pips" aria-hidden="true">
               {options.map((_, pip) => (

@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { speechApi } from "@/api/speechApi";
+import type { LanguageCode } from "@/api/types";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { bcp47 } from "@/i18n/languages";
 
 /* Audio output (build spec §6.9).
 
@@ -78,6 +80,49 @@ function findVoice(
   return { voice: undefined, lang: locale };
 }
 
+/* --- Reading a tapped choice back ------------------------------------------
+
+   Tapping an answer submits it, and the next question — or the next page —
+   appears within a second or two. If the read-back belonged to the tapped
+   component, that component unmounting would cut it off mid-word. So choice
+   speech is owned by no screen: screen-lifecycle stops leave it alone, and the
+   next question waits for it to finish instead of talking over it. A hard
+   cap stops a stuck utterance from holding the next question hostage. */
+
+const CHOICE_MAX_MS = 4000;
+let activeChoice: Promise<void> | null = null;
+
+/** Read a tapped option aloud, in `language` (which may differ from the
+ *  screen's — a language tile is read in the language it names). */
+export function speakChoice(text: string, language: LanguageCode): void {
+  if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  const synth = window.speechSynthesis;
+  synth.cancel();
+
+  let resolveFinished: () => void = () => {};
+  const finished = new Promise<void>((resolve) => {
+    resolveFinished = resolve;
+  });
+  const release = () => {
+    if (activeChoice === finished) activeChoice = null;
+    resolveFinished();
+  };
+  activeChoice = finished;
+  setTimeout(release, CHOICE_MAX_MS);
+
+  void getAvailableVoices().then((voices) => {
+    if (activeChoice !== finished) return; // a newer tap has taken over
+    const { voice, lang } = findVoice(voices, language, bcp47(language));
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = 0.92;
+    if (voice) utterance.voice = voice;
+    utterance.onend = release;
+    utterance.onerror = release;
+    synth.speak(utterance);
+  });
+}
+
 export function useSpeech() {
   const { language, locale } = useLanguage();
   const [speaking, setSpeaking] = useState(false);
@@ -93,7 +138,8 @@ export function useSpeech() {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    // A choice being read back is left to finish (see speakChoice).
+    if (typeof window !== "undefined" && "speechSynthesis" in window && !activeChoice) {
       window.speechSynthesis.cancel();
     }
     setSpeaking(false);
@@ -116,6 +162,12 @@ export function useSpeech() {
   const speakQuestion = useCallback(
     async (text: string) => {
       if (!text) return;
+
+      // Let the answer the patient just tapped finish being read first.
+      const ticket = ++requestRef.current;
+      while (activeChoice) await activeChoice;
+      if (ticket !== requestRef.current) return; // superseded, or the screen left
+
       stop();
 
       const requestId = ++requestRef.current;
