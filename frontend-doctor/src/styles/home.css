@@ -1,0 +1,115 @@
+/* Home fills the viewport. The previous version let content stop two thirds
+   down the page, which read as unfinished rather than uncluttered. */
+
+.home {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); min-height: 100%;
+}
+
+.home-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex: none; }
+.home-greet { font-size: var(--fs-display); letter-spacing: -.02em; }
+.home-sub { font-size: var(--fs-sm); color: var(--text-2); margin-top: 2px; }
+.home-date { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; padding-top: 6px; }
+
+/* The flagged patient: a person to see, not a statistic. */
+.flagcard {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left;
+  padding: var(--space-3) var(--space-4); flex: none;
+  background: var(--emergency-soft); color: var(--emergency);
+  border: 1px solid var(--emergency); border-left: 5px solid var(--emergency);
+  border-radius: 12px; cursor: pointer;
+}
+.flagcard:hover { background: var(--card); }
+.flag-sev {
+  font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .12em;
+  border: 1px solid currentColor; border-radius: 2px; padding: 3px 8px; flex: none;
+}
+.flag-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.flag-name { font-size: var(--fs-lg); font-weight: var(--weight-bold); color: var(--text); }
+.flag-meta { font-size: var(--fs-xs); font-weight: var(--weight-normal); color: var(--text-2); }
+.flag-reason { font-size: var(--fs-sm); font-weight: var(--weight-medium); }
+.flag-wait { font-size: var(--fs-xs); color: var(--text-2); flex: none; }
+.flag-go { font-size: var(--fs-sm); font-weight: var(--weight-bold); flex: none; white-space: nowrap; }
+
+/* Three columns that grow to absorb whatever height is left. */
+.home-grid {
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3); flex: 1; min-height: 260px;
+}
+
+.tile {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  gap: var(--space-1); padding: var(--space-4); text-align: left;
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.tile:hover { background: var(--row-hover); }
+.tile-primary { background: var(--primary); border-color: var(--primary); color: var(--card); gap: var(--space-2); }
+.tile-primary:hover { background: var(--primary-hover); }
+.tile-label { font-size: var(--fs-display); font-weight: var(--weight-bold); letter-spacing: -.02em; }
+.tile-sub { font-size: var(--fs-base); opacity: .9; }
+.tile-note {
+  font-size: var(--fs-xs); opacity: .85; margin-top: var(--space-2);
+  border-top: 1px solid rgb(255 255 255 / .25); padding-top: var(--space-2); width: 100%;
+}
+
+.panel {
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  overflow: hidden;
+}
+.panel-head {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+.panel-head h2 { font-size: var(--fs-base); }
+.panel-link {
+  margin-left: auto; background: transparent; border: 0; cursor: pointer;
+  font-size: var(--fs-xs); color: var(--primary); font-weight: var(--weight-medium);
+}
+.panel-link:hover { text-decoration: underline; }
+.panel-empty, .panel-ok, .panel-alert { padding: var(--space-3); font-size: var(--fs-sm); }
+.panel-empty { color: var(--text-3); }
+.panel-ok { color: var(--success); padding-bottom: 0; }
+.panel-alert { color: var(--emergency); font-weight: var(--weight-medium); padding-bottom: 0; }
+
+.minilist { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+.minirow {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%; text-align: left;
+  padding: var(--space-2) var(--space-3);
+  background: transparent; border: 0; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.minirow:hover:not(:disabled) { background: var(--row-hover); }
+.minirow:disabled { opacity: .5; cursor: not-allowed; }
+.mini-tok { font-size: var(--fs-sm); font-weight: var(--weight-medium); color: var(--text-2); flex: none; }
+.mini-days {
+  font-size: var(--fs-xs); flex: none; width: 44px; color: var(--text-3);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 1px 0; text-align: center;
+}
+.mini-days.late { color: var(--emergency); border-color: var(--emergency); background: var(--emergency-soft); font-weight: var(--weight-medium); }
+.mini-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.mini-name { font-size: var(--fs-sm); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-sub { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-right { font-size: var(--fs-xs); color: var(--text-3); flex: none; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: var(--space-3) var(--space-4) var(--space-2); }
+.chart-card { flex: none; }
+.chart-head { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-1); }
+.chart-head h3 { font-size: var(--fs-base); }
+.chart-note { font-size: var(--fs-xs); color: var(--text-3); }
+.spark { width: 100%; height: auto; display: block; }
+.spark-base { stroke: var(--line); stroke-width: 1; }
+.spark-fill { fill: var(--primary-soft); }
+.spark-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.spark-dot { fill: var(--primary); }
+.spark-val { fill: var(--text-2); font-size: 17px; font-family: var(--font-mono); text-anchor: middle; }
+.spark-val.peak { fill: var(--primary); font-weight: 500; }
+.spark-label { fill: var(--text-3); font-size: 16px; font-family: var(--font-mono); text-anchor: middle; }
+
+@media (max-width: 1200px) {
+  .home-grid { grid-template-columns: 1fr; }
+  .home-top { flex-direction: column; gap: var(--space-2); }
+  .flagcard { flex-wrap: wrap; }
+}

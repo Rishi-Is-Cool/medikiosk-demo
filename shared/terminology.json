@@ -1,0 +1,111 @@
+{
+  "_about": "Real NAMASTE / WHO-SAT / ICD-11 codes for MediKiosk (SIH26047). Replaces the TODO placeholders in the demo fixtures.",
+
+  "_provenance": {
+    "namaste_morbidity": "NAMASTE Ayurveda morbidity list, 2910 rows (columns NAMC_ID, NAMC_CODE, NAMC_term, NAMC_term_diacritical, NAMC_term_DEVANAGARI, Name English).",
+    "who_sat": "WHO Standardised International Terminologies for Ayurveda, 12080 rows (columns t_id, Code, parent_id, Word, Short Defination).",
+    "obtained_from": "Public mirrors of both CSVs referenced by github.com/CodexRaunak/NAMASTE-ICD-11-Integration (scripts/download_namaste.py). NOT fetched from the official portal.",
+    "VERIFY_BEFORE_DEMO": "These are mirrors, not the authoritative source. Re-check every code against namaste.ayush.gov.in before this is shown to AIIA. The structure and Devanagari are consistent with the official release, but provenance is second-hand.",
+    "extracted": "2026-08-31"
+  },
+
+  "_code_format": "In the morbidity list a dual-coded row reads 'TM2CODE (NAMC_CODE)' — e.g. 'SP60 (EF-2.4.4)' is ICD-11 TM2 SP60 plus NAMASTE EF-2.4.4. Rows with no parenthetical have no TM2 mapping.",
+
+  "diagnoses": [
+    {
+      "key": "diabetes_mellitus",
+      "english": "Diabetes mellitus type 2",
+      "namaste_code": "EF-2.4.4",
+      "namaste_term": "madhumehaḥ / kṣaudramehaḥ",
+      "devanagari": "मधुमेहः/क्षौद्रमेहः",
+      "icd11_tm2": "SP60",
+      "icd11_tm2_title": "Diabetes mellitus disorder (TM2)",
+      "icd11_biomedicine": "5A11",
+      "confidence": "verified",
+      "note": "Dual-coded in the source. Parent concept pramehaḥ is EF-2 / TM2 SM8D (Polyuria disorder)."
+    },
+    {
+      "key": "hypertension",
+      "english": "Hypertension",
+      "namaste_code": "AAE-8",
+      "namaste_term": "asr̥ggatavātaḥ / raktagatavāta",
+      "devanagari": "असृग्गतवातः/रक्तगतवात",
+      "icd11_tm2": null,
+      "icd11_tm2_title": null,
+      "icd11_biomedicine": "BA00",
+      "confidence": "NEEDS_CLINICAL_REVIEW",
+      "note": "There is NO clean NAMASTE→TM2 mapping for essential hypertension. AAE-8 means 'vitiated vāta in rakta', which is a related but not equivalent concept. Do not present this as an equivalence — either have an Ayurveda faculty member confirm the mapping, or code hypertension with the biomedicine code alone. The ICD-11 BA00 code is correct and safe to use."
+    },
+    {
+      "key": "fever",
+      "english": "Fever",
+      "namaste_code": "EC-3",
+      "namaste_term": "jvaraḥ",
+      "devanagari": "ज्वरः",
+      "icd11_tm2": "SP51",
+      "icd11_tm2_title": "Fever disorder (TM2)",
+      "icd11_biomedicine": "MG26",
+      "confidence": "verified",
+      "note": "Subtypes are dual-coded too — vātikajvaraḥ EC-3.2 / TM2 SP54, paittikajvaraḥ EC-3.3 / TM2 SP53."
+    },
+    {
+      "key": "cough",
+      "english": "Cough",
+      "namaste_code": "EA-3",
+      "namaste_term": "kāsaḥ",
+      "devanagari": "कासः",
+      "icd11_tm2": "SL41",
+      "icd11_tm2_title": "Cough disorder (TM2)",
+      "icd11_biomedicine": "MD12",
+      "confidence": "verified",
+      "note": "Dosha subtypes EA-3.2 vāta, EA-3.3 pitta, EA-3.4 kapha are NAMC-only, no TM2 code."
+    },
+    {
+      "key": "amavata",
+      "english": "Rheumatism / rheumatoid-type joint disorder",
+      "namaste_code": "EC-6",
+      "namaste_term": "āmavātaḥ",
+      "devanagari": "आमवातः",
+      "icd11_tm2": "SP11",
+      "icd11_tm2_title": "Rheumatism disorder (TM2)",
+      "icd11_biomedicine": "FA20",
+      "confidence": "verified",
+      "note": "Used by the Meera Krishnan and Farida Sheikh fixtures."
+    }
+  ],
+
+  "examination_frameworks": [
+    { "key": "trividha",   "sat_code": "SAT-C.152", "term": "trividha-parīkṣā",     "english": "three-fold examination of patient", "confidence": "verified" },
+    { "key": "shadvidha",  "sat_code": "SAT-C.153", "term": "ṣaḍvidha-parīkṣā",     "english": "six-fold examination of patient",   "confidence": "verified" },
+    { "key": "ashtavidha", "sat_code": "SAT-C.154", "term": "aṣṭasthāna-parīkṣā",   "english": "eight-fold examination of patient", "confidence": "verified" },
+    { "key": "dashavidha", "sat_code": "SAT-C.155", "term": "daśavidha-parīkṣā",    "english": "ten-fold examination of patient",   "confidence": "verified",
+      "note": "The framework the problem statement names. It is a leaf node in the SAT list — the ten axes are not enumerated beneath it, they live as general concepts elsewhere in the terminology." }
+  ],
+
+  "assessment_axes": {
+    "_warning": "Several Dashavidha axis names are homonyms of unrelated Ayurvedic concepts in the SAT list. Sara as a Dashavidha axis means tissue excellence; SAT-A.155 saraḥ/calaḥ means 'instability/mobility' and is a guṇa, not the axis. Sattva as an axis means mental strength; SAT-A.127 sattvam is the triguṇa 'purity or goodness'. Those two are left uncoded on purpose rather than mapped to a homonym — a wrong code is worse than no code in front of an Ayurveda panel.",
+
+    "satmya":         { "sat_code": "SAT-J.79",  "term": "sātmyam",   "english": "homologation / habituation",                 "confidence": "verified" },
+    "pramana":        { "sat_code": "SAT-B.513", "term": "pramāṇam",  "english": "anthropometry",                              "confidence": "verified",
+                        "note": "SAT-A.277 pramāṇam is a different sense — 'means of acquiring knowledge'. Use SAT-B.513." },
+    "vyayama_shakti": { "sat_code": "SAT-J.22",  "term": "vyāyāmaḥ",  "english": "exercise",                                   "confidence": "probable",
+                        "note": "Codes the activity, not the capacity (śakti). SAT-I.52 and SAT-I.126 are therapeutic senses — do not use those." },
+    "bala":           { "sat_code": "SAT-B.464", "term": "balam",     "english": "immunity / strength / physical endurance",   "confidence": "verified" },
+
+    "sara":           { "sat_code": null, "confidence": "UNCODED", "note": "Homonym risk — see _warning. Needs an Ayurveda faculty decision." },
+    "sattva":         { "sat_code": null, "confidence": "UNCODED", "note": "Homonym risk — see _warning." },
+    "samhanana":      { "sat_code": null, "confidence": "UNCODED", "note": "No clean standalone entry found in the SAT list." },
+    "ahara_shakti":   { "sat_code": null, "confidence": "UNCODED", "note": "No entry for āhāraśakti as a compound. Agni (SAT-B.488) is the closest related concept but is not the same axis." },
+    "vaya":           { "sat_code": null, "confidence": "UNCODED", "note": "No standalone 'vayaḥ' entry found." },
+    "prakriti":       { "sat_code": "SAT-D.5209", "term": "prakr̥tiḥ", "english": null, "confidence": "NEEDS_REVIEW",
+                        "note": "Entry exists but carries no definition in the source, so the sense cannot be confirmed from the data alone." },
+    "vikriti":        { "sat_code": null, "confidence": "UNCODED", "note": "No entry found for vikr̥tiḥ." }
+  },
+
+  "trend_measures": {
+    "agni":    { "sat_code": "SAT-B.488", "term": "agniḥ",    "english": "digestive/metabolic factors", "confidence": "verified" },
+    "koshtha": { "sat_code": "SAT-B.507", "term": "koṣṭhaḥ",  "english": "nature of bowel",             "confidence": "verified" },
+    "nidra":   { "sat_code": "SAT-J.3",   "term": "nidrā",    "english": "sleep",                       "confidence": "verified",
+                 "note": "SAT-D.4374 nidrā carries no definition — use SAT-J.3." }
+  }
+}
