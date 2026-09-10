@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import os
+import secrets
 import shutil
+import statistics
 import tempfile
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.security import OAuth2PasswordBearer
@@ -21,7 +23,7 @@ from app.database.schemas import (AdviceLibraryEntry, ClinicalAlert, ClinicalFac
     PhysicianSnapshot, TimelineEvent, Transcript, UploadSession)
 from app.models.pydantic_models import (ConsentSubmission, DoctorQuestionRequest, LedgerRequest, RegistrationRequest,
     StartIntakeRequestV2, SubmitIntakeAnswerRequest)
-from app.services.integration import (add_timeline_event, assign_doctor, canonical_specialty, create_fact,
+from app.services.integration import (add_timeline_event, assign_doctor, canonical_gender, canonical_specialty, create_fact,
     kiosk_question, NoDoctorAvailable, now, parse_follow_up_days, persist_answer, persist_red_flags, priority_state,
     ref, require_session, source_for_fact)
 from app.utils.security import decode_token
@@ -32,7 +34,11 @@ doctor_router = APIRouter(prefix="/api", tags=["Doctor Integration"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "./data/uploads"))
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
-ALLOWED_TYPES = {"image/jpeg", "image/png", "application/pdf"}
+# Every still-image format the Gemini vision pipeline accepts natively, not
+# just the two a desktop scanner produces — a phone camera hands back HEIC on
+# iOS and WEBP on plenty of Android camera apps by default, and both used to
+# 415 here even though the model downstream reads them just fine.
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"}
 
 
 def _session_payload(session: KioskSession, patient: Patient) -> Dict[str, Any]:
@@ -51,7 +57,7 @@ def kiosk_register(request: RegistrationRequest, db: Session = Depends(get_db)):
         age = 0
     if not name.strip() or age < 0:
         raise HTTPException(422, "A valid patient name and age are required")
-    patient = Patient(patient_id=ref("pat"), name=name.strip(), age=age, gender=data.get("sex", "unknown"),
+    patient = Patient(patient_id=ref("pat"), name=name.strip(), age=age, gender=canonical_gender(data.get("sex")),
                       language=request.language, phone=data.get("phone"), abha_id=request.identifier if request.identity_method == "abha" else None,
                       consent_granted=False)
     db.add(patient); db.flush()
@@ -89,18 +95,59 @@ async def scan_identity(identity_method: str = Form(...), image: UploadFile = Fi
     return {"identity_method": identity_method, "identifier": result.get("identifier"), "name": result.get("name")}
 
 
+# The fixed taxonomy is deliberately server-owned. Labels are translated for
+# every kiosk language that is actually live (en/hi/mr — see LanguageProvider
+# and the "Coming soon" languages on ChiefComplaintScreen); an unlisted
+# language code falls back to English rather than 404ing the kiosk.
+_COMPLAINT_TAXONOMY = [
+    ("chest_pain", {"en": "Chest pain", "hi": "सीने में दर्द", "mr": "छातीत दुखणे"}, ("chest", "chati", "सीने", "छाती")),
+    ("fever_cough", {"en": "Fever and cough", "hi": "बुखार और खांसी", "mr": "ताप आणि खोकला"}, ("fever", "cough", "bukhar", "बुखार", "खांसी", "ताप")),
+    ("abdominal_pain", {"en": "Abdominal pain", "hi": "पेट में दर्द", "mr": "पोटदुखी"}, ("stomach", "abdomen", "पेट")),
+    ("joint_pain", {"en": "Joint pain", "hi": "जोड़ों में दर्द", "mr": "सांधेदुखी"}, ("joint", "जोड़")),
+    ("headache", {"en": "Headache", "hi": "सिरदर्द", "mr": "डोकेदुखी"}, ("head", "सिर")),
+    ("breathlessness", {"en": "Difficulty breathing", "hi": "सांस लेने में तकलीफ", "mr": "श्वास घेण्यास त्रास"}, ("breath", "shortness", "सांस")),
+    ("other", {"en": "Other", "hi": "अन्य", "mr": "इतर"}, ()),
+]
+
+
+def _complaint_label(labels: Dict[str, str], language: str) -> str:
+    return labels.get(language, labels["en"])
+
+
+_COMPLAINT_LABELS_BY_ID = {code: labels for code, labels, _ in _COMPLAINT_TAXONOMY}
+
+
+def _resolve_chief_complaint(complaint_id: str, complaint_text: Optional[str], language: str) -> str:
+    """A patient who taps a complaint chip with no elaboration sends only the
+    taxonomy id (e.g. "fever_cough") — that used to land verbatim as
+    Encounter.chief_complaint and the doctor would see the raw id. Resolve it
+    to the same human label the kiosk itself showed, in the patient's
+    language. A patient who spoke or typed something real (chief_complaint_text)
+    is quoted verbatim instead — their own words outrank the taxonomy label."""
+    if complaint_text and complaint_text.strip():
+        return complaint_text.strip()
+    labels = _COMPLAINT_LABELS_BY_ID.get(complaint_id)
+    if labels:
+        return _complaint_label(labels, language)
+    # An id outside the known taxonomy (future complaint type, bad client
+    # data) still shouldn't show up as raw snake_case in the doctor console.
+    return (complaint_id or "Not recorded").replace("_", " ").strip().capitalize()
+
+
 @kiosk_router.get("/intake/complaints")
 def complaints(language: str = "en"):
-    # The fixed taxonomy is deliberately server-owned; labels are fallback English where not translated.
-    return [{"id": x, "label": label, "icon": "medical"} for x, label in [("chest_pain", "Chest pain"), ("fever_cough", "Fever and cough"), ("abdominal_pain", "Abdominal pain"), ("joint_pain", "Joint pain"), ("headache", "Headache"), ("breathlessness", "Difficulty breathing"), ("other", "Other")]]
+    return [{"id": code, "label": _complaint_label(labels, language), "icon": "medical"} for code, labels, _ in _COMPLAINT_TAXONOMY]
 
 
 @kiosk_router.post("/intake/match-complaint")
 def match_complaint(body: Dict[str, str]):
     text = (body.get("transcript") or "").strip(); lower = text.lower()
-    matches = [("chest_pain", "Chest pain", ("chest", "chati", "सीने")), ("fever_cough", "Fever and cough", ("fever", "cough", "bukhar", "बुखार")),
-               ("breathlessness", "Difficulty breathing", ("breath", "shortness", "सांस"))]
-    found = next(({"id": code, "label": label, "icon": "medical"} for code, label, words in matches if any(w in lower for w in words)), None)
+    language = body.get("language") or "en"
+    found = next(
+        ({"id": code, "label": _complaint_label(labels, language), "icon": "medical"}
+         for code, labels, words in _COMPLAINT_TAXONOMY if words and any(w in lower for w in words)),
+        None,
+    )
     return {"complaint": found, "transcript": text}
 
 
@@ -117,11 +164,12 @@ def start_intake(request: StartIntakeRequestV2, db: Session = Depends(get_db)):
         doctor_username = assign_doctor(db, canonical_specialty(request.history_mode))
     except NoDoctorAvailable as exc:
         raise HTTPException(503, str(exc))
+    chief_complaint = _resolve_chief_complaint(request.chief_complaint, request.chief_complaint_text, request.language)
     encounter = Encounter(encounter_id=ref("enc"), patient_id=session.patient_id, intake_framework=request.history_mode,
-                          chief_complaint=request.chief_complaint_text or request.chief_complaint, language=request.language,
+                          chief_complaint=chief_complaint, language=request.language,
                           assigned_doctor_username=doctor_username)
     db.add(encounter); db.flush(); session.encounter_id = encounter.encounter_id
-    persist_answer(db, encounter, "q1_chief_complaint", "patient_touch", [], request.chief_complaint_text or request.chief_complaint, request.language)
+    persist_answer(db, encounter, "q1_chief_complaint", "patient_touch", [], chief_complaint, request.language)
     add_timeline_event(db, encounter.patient_id, encounter.encounter_id, "consultation", f"New encounter: {encounter.chief_complaint}", "encounter", encounter.encounter_id)
     db.commit(); db.refresh(encounter)
     return kiosk_question(encounter, request.language)
@@ -258,7 +306,9 @@ def synthesize_speech(body: Dict[str, str]):
 def create_upload_session(body: Dict[str, Any], db: Session = Depends(get_db)):
     try: session = require_session(db, body["session_id"])
     except (KeyError, ValueError) as exc: raise HTTPException(404, "Kiosk session is unknown or expired") from exc
-    upload = UploadSession(token=ref("upload"), session_id=session.session_id, expires_at=now() + timedelta(minutes=15))
+    # No enforced expiry (see the two endpoints below) — expires_at is kept
+    # only because the column is non-nullable, not as an active time lock.
+    upload = UploadSession(token=ref("upload"), session_id=session.session_id, expires_at=now() + timedelta(days=1))
     db.add(upload); db.commit()
     return {"token": upload.token, "upload_url": f"/upload/{upload.token}", "status": upload.status, "documents": [], "expires_at": upload.expires_at.isoformat() + "Z"}
 
@@ -266,7 +316,7 @@ def create_upload_session(body: Dict[str, Any], db: Session = Depends(get_db)):
 @kiosk_router.get("/documents/upload-session/{token}")
 def upload_session_status(token: str, db: Session = Depends(get_db)):
     upload = db.query(UploadSession).filter(UploadSession.token == token).first()
-    if not upload or upload.expires_at < now(): raise HTTPException(410, "Upload session expired")
+    if not upload: raise HTTPException(404, "Upload link not found")
     docs = db.query(Document).filter(Document.document_id.in_(upload.document_ids or [])).all()
     return {"token": token, "upload_url": f"/upload/{token}", "status": upload.status,
             "documents": [{"document_id": d.document_id, "file_name": d.file_name, "size_bytes": os.path.getsize(d.file_path) if os.path.exists(d.file_path) else 0,
@@ -277,8 +327,8 @@ def upload_session_status(token: str, db: Session = Depends(get_db)):
 @kiosk_router.post("/documents/upload-session/{token}/documents")
 async def upload_from_phone(token: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
     upload = db.query(UploadSession).filter(UploadSession.token == token).first()
-    if not upload or upload.expires_at < now(): raise HTTPException(410, "Upload session expired")
-    if file.content_type not in ALLOWED_TYPES: raise HTTPException(415, "Only JPEG, PNG, and PDF documents are accepted")
+    if not upload: raise HTTPException(404, "Upload link not found")
+    if file.content_type not in ALLOWED_TYPES: raise HTTPException(415, "That file type isn't supported — send a photo or a PDF.")
     content = await file.read()
     if not content or len(content) > MAX_UPLOAD_BYTES: raise HTTPException(413, "Document is empty or exceeds the upload limit")
     session = db.query(KioskSession).filter(KioskSession.session_id == upload.session_id).first()
@@ -376,13 +426,28 @@ def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
 
 @doctor_router.get("/queue")
 def doctor_queue(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
-    profile = db.query(DoctorProfile).filter(DoctorProfile.username == clinician.get("sub")).first()
+    username = clinician.get("sub")
+    profile = db.query(DoctorProfile).filter(DoctorProfile.username == username).first()
     encounters = (db.query(Encounter).options(joinedload(Encounter.patient))
-                  .filter(Encounter.status != "finalized", Encounter.assigned_doctor_username == clinician.get("sub"))
+                  .filter(Encounter.status != "finalized", Encounter.assigned_doctor_username == username)
                   .order_by(Encounter.started_at).all())
     department = ("Ayurveda OPD" if profile and profile.practitioner_type == "ayurveda" else "General Medicine OPD") if profile else "MediKiosk OPD"
-    return {"department": department, "doctor": {"name": profile.name if profile else "Authenticated clinician"}, "stats": {"in_queue": len(encounters)},
-            "patients": [{"encounter_id": e.encounter_id, "token": str(i + 1), "name": e.patient.name, "age_years": e.patient.age, "sex": e.patient.gender.lower(), "complaint": e.chief_complaint, "department": department, "intake_framework": e.intake_framework, "intake_state": e.status, "wait_min": None, "priority": e.priority in {"urgent", "priority"}} for i, e in enumerate(encounters)]}
+
+    current_time = now()
+    wait_by_id = {e.encounter_id: max(0, int((current_time - e.started_at).total_seconds() // 60)) if e.started_at else None for e in encounters}
+    wait_minutes = [w for w in wait_by_id.values() if w is not None]
+    today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    seen_today = (db.query(Encounter)
+                  .filter(Encounter.assigned_doctor_username == username, Encounter.status == "finalized", Encounter.finalized_at >= today_start)
+                  .count())
+    stats = {
+        "in_queue": len(encounters),
+        "seen_today": seen_today,
+        "median_wait_min": int(statistics.median(wait_minutes)) if wait_minutes else 0,
+        "intake_complete": sum(1 for e in encounters if e.status == "ready"),
+    }
+    return {"department": department, "doctor": {"name": profile.name if profile else "Authenticated clinician", "hpr": profile.registration if profile else None}, "stats": stats,
+            "patients": [{"encounter_id": e.encounter_id, "token": str(i + 1), "name": e.patient.name, "age_years": e.patient.age, "sex": e.patient.gender.lower(), "complaint": e.chief_complaint, "department": department, "intake_framework": e.intake_framework, "intake_state": e.status, "wait_min": wait_by_id[e.encounter_id], "priority": e.priority in {"urgent", "priority"}} for i, e in enumerate(encounters)]}
 
 
 @doctor_router.get("/encounters/{encounter_id}/snapshot")
@@ -512,8 +577,8 @@ def save_ledger(encounter_id: str, request: LedgerRequest, clinician: Dict[str, 
     if not request.doctor_confirmed: raise HTTPException(422, "Doctor confirmation is required")
     entry = LedgerEntry(ledger_id=ref("ledger"), encounter_id=encounter_id, clinician_id=clinician.get("sub", "doctor"), treatment_change=request.treatment_change,
                         previous_treatment=request.previous_treatment, new_treatment=request.new_treatment, deviation_reason=request.deviation_reason,
-                        doctor_rationale=request.doctor_rationale, advice=request.advice, follow_up_required=request.follow_up_required,
-                        follow_up_timeframe=request.follow_up_timeframe)
+                        doctor_rationale=request.doctor_rationale, advice=request.advice, medicines=request.medicines, notes=request.notes,
+                        follow_up_required=request.follow_up_required, follow_up_timeframe=request.follow_up_timeframe)
     db.add(entry); db.flush(); add_timeline_event(db, encounter.patient_id, encounter_id, "clinical_decision", "Doctor-authored ledger entry", "clinician", entry.ledger_id)
     advice_ids = [a.get("id") for a in request.advice if isinstance(a, dict) and a.get("id")]
     if advice_ids:
@@ -529,5 +594,7 @@ def finalize_encounter(encounter_id: str, clinician: Dict[str, Any] = Depends(_d
     _require_own_encounter(encounter, clinician)
     if not db.query(LedgerEntry).filter(LedgerEntry.encounter_id == encounter_id).first(): raise HTTPException(409, "A ledger entry is required before finalization")
     encounter.status = "finalized"; encounter.finalized_at = now(); encounter.finalized_by = clinician.get("sub", "doctor")
+    if not encounter.share_token:
+        encounter.share_token = secrets.token_urlsafe(16)
     add_timeline_event(db, encounter.patient_id, encounter_id, "finalization", "Encounter finalized", "encounter", encounter_id); db.commit()
-    return {"ok": True, "encounter_id": encounter_id, "status": encounter.status}
+    return {"ok": True, "encounter_id": encounter_id, "status": encounter.status, "share_token": encounter.share_token}

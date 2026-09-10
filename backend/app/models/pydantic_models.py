@@ -159,9 +159,18 @@ class LedgerRequest(BaseModel):
     deviation_reason: Optional[str] = None
     doctor_rationale: Optional[str] = None
     advice: List[Dict[str, Any]] = Field(default_factory=list)
+    medicines: List[Dict[str, Any]] = Field(default_factory=list)
+    notes: Optional[str] = None
     follow_up_required: bool = False
     follow_up_timeframe: Optional[str] = None
     doctor_confirmed: bool = False
+
+
+class TemplateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    diagnosis_label: Optional[str] = None
+    medicines: List[Dict[str, Any]] = Field(default_factory=list)
+    advice_ids: List[str] = Field(default_factory=list)
 
 
 class DoctorQuestionRequest(BaseModel):

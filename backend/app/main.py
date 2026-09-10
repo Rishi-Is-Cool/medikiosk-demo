@@ -29,7 +29,7 @@ except ImportError:
 
 from app.database.connection import engine, Base, SessionLocal
 from app.database.seed import seed_reference_data
-from app.api import auth, patients, interview, documents, summary, fhir_abdm, admin, integration
+from app.api import auth, patients, interview, documents, summary, fhir_abdm, admin, integration, prescribing, public
 
 # ─── Database Initialization ──────────────────────────────────────────────────
 @asynccontextmanager
@@ -90,6 +90,8 @@ app.include_router(fhir_abdm.router)
 app.include_router(admin.router)
 app.include_router(integration.kiosk_router)
 app.include_router(integration.doctor_router)
+app.include_router(prescribing.router)
+app.include_router(public.router)
 
 
 # ─── Root & Health Check Endpoints ───────────────────────────────────────────

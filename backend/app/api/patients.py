@@ -1,13 +1,24 @@
 import uuid
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session, joinedload
 from app.database.connection import get_db
 from app.database.schemas import ClinicalFact, Encounter, Patient, TimelineEvent
 from app.models.pydantic_models import PatientCreate, PatientResponse
 from app.integrations.abdm import abdm_service
+from app.services.integration import canonical_gender
+from app.utils.security import decode_token
 
 router = APIRouter(prefix="/api/patients", tags=["Patients & ABHA Registration"])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+
+
+def _doctor(payload: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+    data = decode_token(payload)
+    if data.get("role") not in {"doctor", "admin"}:
+        raise HTTPException(403, "Doctor access required")
+    return data
 
 
 def _patient_summary(db: Session, patient: Patient) -> Dict[str, Any]:
@@ -42,7 +53,7 @@ def register_patient(patient_in: PatientCreate, db: Session = Depends(get_db)):
         patient_id=new_patient_id,
         name=patient_in.name,
         age=patient_in.age,
-        gender=patient_in.gender,
+        gender=canonical_gender(patient_in.gender),
         language=patient_in.language or "hi",
         abha_id=patient_in.abha_id,
         phone=patient_in.phone,
@@ -56,14 +67,24 @@ def register_patient(patient_in: PatientCreate, db: Session = Depends(get_db)):
 
 
 @router.get("")
-def list_patients(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
-    """Every patient on file, not just today's queue — the doctor console's patient directory."""
-    patients = db.query(Patient).order_by(Patient.created_at.desc()).all()
+def list_patients(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    """Every patient this doctor has personally been assigned an encounter for —
+    not the whole hospital's roster. Same "only your own department reaches
+    you" boundary the queue already enforces via assign_doctor(); without
+    this, a general-medicine account could browse Ayurveda patients' names,
+    conditions and department labels here even though it never treats them."""
+    patient_ids = [pid for (pid,) in db.query(Encounter.patient_id)
+                   .filter(Encounter.assigned_doctor_username == clinician.get("sub")).distinct().all()]
+    patients = db.query(Patient).filter(Patient.patient_id.in_(patient_ids)).order_by(Patient.created_at.desc()).all()
     return [_patient_summary(db, p) for p in patients]
 
 
 @router.get("/{patient_id}")
-def get_patient(patient_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_patient(patient_id: str, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Any authenticated doctor who already has the id (a referral, an ABHA
+    lookup) can open the record — unlike list_patients, direct lookup isn't
+    the browsing vector that leaks another department's roster, so it isn't
+    restricted to patients this doctor has personally treated."""
     patient = db.query(Patient).filter(Patient.patient_id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")

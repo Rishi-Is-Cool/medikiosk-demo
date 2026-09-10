@@ -1,13 +1,15 @@
 """
 Seeds reference data that has no AI or patient-data source of truth — a
-doctor profile row to edit, and the standard Ayurvedic pathya/apathya advice
-library. Idempotent: only inserts rows that don't already exist.
+doctor profile row to edit, the standard Ayurvedic pathya/apathya advice
+library, and a starter medicine catalog per specialty. Idempotent: only
+inserts rows that don't already exist.
 """
 import os
+import uuid
 
 from sqlalchemy.orm import Session
 
-from app.database.schemas import AdviceLibraryEntry, DoctorProfile, User
+from app.database.schemas import AdviceLibraryEntry, DoctorProfile, Medicine, PrescriptionTemplate, User
 from app.utils.security import get_password_hash
 
 _ADVICE_SEED = [
@@ -27,11 +29,105 @@ _ADVICE_SEED = [
     ("adv_014", "pathya", "Buttermilk with roasted cumin after lunch", "दोपहर के भोजन के बाद भुने जीरे के साथ छाछ"),
 ]
 
+# (medicine_id, name, form, strength, practitioner_type)
+_MEDICINE_SEED = [
+    ("med_g01", "Paracetamol", "tab", "650mg", "general"),
+    ("med_g02", "Azithromycin", "tab", "500mg", "general"),
+    ("med_g03", "Amoxicillin", "cap", "250mg", "general"),
+    ("med_g04", "Pantoprazole", "tab", "40mg", "general"),
+    ("med_g05", "Omeprazole", "tab", "20mg", "general"),
+    ("med_g06", "Cetirizine", "tab", "10mg", "general"),
+    ("med_g07", "Metformin", "tab", "500mg", "general"),
+    ("med_g08", "Amlodipine", "tab", "5mg", "general"),
+    ("med_g09", "Atorvastatin", "tab", "10mg", "general"),
+    ("med_g10", "Ibuprofen", "tab", "400mg", "general"),
+    ("med_g11", "Domperidone", "tab", "10mg", "general"),
+    ("med_g12", "ORS", "sachet", None, "general"),
+    ("med_a01", "Triphala Churna", "churna", "5gm", "ayurveda"),
+    ("med_a02", "Chyawanprash", "avaleha", "10gm", "ayurveda"),
+    ("med_a03", "Ashwagandha Churna", "churna", "3gm", "ayurveda"),
+    ("med_a04", "Sitopaladi Churna", "churna", "3gm", "ayurveda"),
+    ("med_a05", "Trikatu Churna", "churna", "1gm", "ayurveda"),
+    ("med_a06", "Dashmoolarishta", "arishta", "15ml", "ayurveda"),
+    ("med_a07", "Punarnavadi Kadha", "kadha", "20ml", "ayurveda"),
+    ("med_a08", "Hingwashtak Churna", "churna", "2gm", "ayurveda"),
+    ("med_a09", "Yashtimadhu Churna", "churna", "3gm", "ayurveda"),
+    ("med_a10", "Arogyavardhini Vati", "vati", "250mg", "ayurveda"),
+]
+
+# Copied into a doctor's own PrescriptionTemplate rows at signup time — not a
+# live shared table, just the starting point each doctor then owns and can
+# edit or delete independently. Medicine entries are self-contained (name,
+# dosage, frequency, duration) rather than referencing _MEDICINE_SEED ids, so
+# a template still reads correctly even if the catalog changes later.
+_DEFAULT_TEMPLATES = {
+    "general": [
+        {
+            "name": "Common cold / fever",
+            "diagnosis_label": "Viral upper respiratory infection",
+            "medicines": [
+                {"name": "Paracetamol", "dosage": "650mg", "frequency": "twice daily", "duration": "3 days"},
+                {"name": "Cetirizine", "dosage": "10mg", "frequency": "once daily, at night", "duration": "3 days"},
+            ],
+            "advice_ids": ["adv_001", "adv_003", "adv_007"],
+        },
+        {
+            "name": "Acid reflux / gastritis",
+            "diagnosis_label": "Gastro-oesophageal reflux",
+            "medicines": [
+                {"name": "Pantoprazole", "dosage": "40mg", "frequency": "once daily, before breakfast", "duration": "2 weeks"},
+                {"name": "Domperidone", "dosage": "10mg", "frequency": "three times daily, before meals", "duration": "1 week"},
+            ],
+            "advice_ids": ["adv_004", "adv_008", "adv_005"],
+        },
+    ],
+    "ayurveda": [
+        {
+            "name": "Jwara (fever) protocol",
+            "diagnosis_label": "Jwara",
+            "medicines": [
+                {"name": "Sitopaladi Churna", "dosage": "3gm", "frequency": "twice daily with honey", "duration": "5 days"},
+                {"name": "Trikatu Churna", "dosage": "1gm", "frequency": "twice daily", "duration": "5 days"},
+            ],
+            "advice_ids": ["adv_001", "adv_013", "adv_006"],
+        },
+        {
+            "name": "Agnimandya (digestive weakness)",
+            "diagnosis_label": "Agnimandya",
+            "medicines": [
+                {"name": "Trikatu Churna", "dosage": "1gm", "frequency": "before meals", "duration": "2 weeks"},
+                {"name": "Hingwashtak Churna", "dosage": "2gm", "frequency": "with first bite of each meal", "duration": "2 weeks"},
+            ],
+            "advice_ids": ["adv_005", "adv_004", "adv_002"],
+        },
+    ],
+}
+
+
+def copy_default_templates(db: Session, owner_username: str, practitioner_type: str) -> None:
+    """Give a newly-registered doctor their own editable copy of the starter
+    templates for their specialty. Not a shared/live table — from this point
+    each doctor's copy is independent."""
+    for tpl in _DEFAULT_TEMPLATES.get(practitioner_type, []):
+        db.add(PrescriptionTemplate(
+            template_id=f"tpl_{uuid.uuid4().hex[:16]}",
+            owner_username=owner_username,
+            name=tpl["name"],
+            diagnosis_label=tpl.get("diagnosis_label"),
+            medicines=tpl["medicines"],
+            advice_ids=tpl["advice_ids"],
+        ))
+
 
 def seed_reference_data(db: Session) -> None:
     if db.query(AdviceLibraryEntry).count() == 0:
         for advice_id, kind, text, text_hi in _ADVICE_SEED:
             db.add(AdviceLibraryEntry(advice_id=advice_id, kind=kind, text=text, text_hi=text_hi, used_count=0))
+
+    if db.query(Medicine).count() == 0:
+        for medicine_id, name, form, strength, practitioner_type in _MEDICINE_SEED:
+            db.add(Medicine(medicine_id=medicine_id, name=name, form=form, strength=strength,
+                            practitioner_type=practitioner_type, used_count=0))
 
     # The demo doctor account backend/tests/ (test_api.py, test_integrated_flow.py)
     # and the frontend's stopgap auto-login both log in as. It's seeded as a real,
@@ -42,7 +138,8 @@ def seed_reference_data(db: Session) -> None:
     # for that test, not just cosmetics.
     doctor_username = os.getenv("DOCTOR_USERNAME", "doctor_opd_101")
     doctor_password = os.getenv("DOCTOR_PASSWORD", "doc@MediK2026")
-    if not db.query(User).filter(User.username == doctor_username).first():
+    is_new_demo_doctor = not db.query(User).filter(User.username == doctor_username).first()
+    if is_new_demo_doctor:
         db.add(User(username=doctor_username, role="doctor", display_name="Dr. S. Nair",
                     hashed_password=get_password_hash(doctor_password)))
     if not db.query(DoctorProfile).filter(DoctorProfile.username == doctor_username).first():
@@ -61,5 +158,8 @@ def seed_reference_data(db: Session) -> None:
             department="General Medicine OPD",
             languages=["hi", "en"],
         ))
+    db.flush()
+    if is_new_demo_doctor:
+        copy_default_templates(db, doctor_username, "general")
 
     db.commit()

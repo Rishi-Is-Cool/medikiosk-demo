@@ -121,13 +121,15 @@ class TestPatientRegistration:
 
     def test_get_patient_by_id(self, client, registered_patient):
         """Fetch a registered patient by patient_id."""
-        response = client.get(f"/api/patients/{registered_patient}")
+        token = client.post("/api/auth/token", data={"username": "doctor_opd_101", "password": "doc@MediK2026"}).json()["access_token"]
+        response = client.get(f"/api/patients/{registered_patient}", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         assert response.json()["patient_id"] == registered_patient
 
     def test_get_nonexistent_patient_returns_404(self, client):
         """Requesting a non-existent patient returns 404."""
-        response = client.get("/api/patients/PAT-DOESNOTEXIST")
+        token = client.post("/api/auth/token", data={"username": "doctor_opd_101", "password": "doc@MediK2026"}).json()["access_token"]
+        response = client.get("/api/patients/PAT-DOESNOTEXIST", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 404
 
     def test_abha_verification(self, client):

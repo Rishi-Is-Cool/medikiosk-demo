@@ -132,6 +132,19 @@ def parse_follow_up_days(text: Optional[str]) -> Optional[int]:
 _SPECIALTY_BY_FRAMEWORK = {"ayush": "ayurveda", "general_medicine": "general", "allopathic": "general"}
 
 
+# The kiosk's gender picker (frontend-kiosk/src/screens/RegistrationScreen.tsx)
+# sends single-letter codes ("M"/"F"/"O"). Patient.gender is stored as the
+# canonical full word so every downstream reader — the doctor console's
+# `sex === "female"` checks, FHIR export, admin reports — sees one consistent
+# vocabulary instead of each guessing at case and abbreviation.
+_GENDER_BY_CODE = {"m": "male", "f": "female", "o": "other"}
+
+
+def canonical_gender(raw: str) -> str:
+    normalized = (raw or "").strip().lower()
+    return _GENDER_BY_CODE.get(normalized, normalized or "unknown")
+
+
 def canonical_specialty(intake_framework: str) -> str:
     return _SPECIALTY_BY_FRAMEWORK.get(intake_framework, "general")
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
 from app.database.schemas import DoctorProfile, User
+from app.database.seed import copy_default_templates
 from app.models.pydantic_models import Token
 from app.utils.security import create_access_token, decode_token, get_password_hash, oauth2_scheme, verify_password
 
@@ -115,6 +116,8 @@ async def register_doctor(payload: DoctorRegistration, db: Session = Depends(get
     db.add(DoctorProfile(username=payload.username, name=payload.name, practitioner_type=practitioner_type,
                          qualifications=payload.qualifications,
                          department="Ayurveda OPD" if practitioner_type == "ayurveda" else "General Medicine OPD"))
+    db.flush()
+    copy_default_templates(db, payload.username, practitioner_type)
     db.commit()
 
     access_token = create_access_token(data={"sub": payload.username, "role": "doctor"})

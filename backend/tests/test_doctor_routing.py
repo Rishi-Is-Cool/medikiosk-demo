@@ -163,6 +163,21 @@ class TestDoctorRouting:
         assert "Ayush Only Patient" not in {p["name"] for p in general_queue}
         assert "Ayush Only Patient" in {p["name"] for p in ayurveda_queue}
 
+    def test_patients_directory_scoped_to_doctors_own_patients(self, client, monkeypatch):
+        """GET /api/patients is the doctor console's roster screen — without
+        scoping, a general-medicine account could browse Ayurveda patients'
+        names and department labels there even though it never treats them."""
+        _, general_headers = _register_doctor(client, "general", "Dr. General Roster")
+        doc_ayur, ayurveda_headers = _register_doctor(client, "ayurveda", "Dr. Ayur Roster")
+        monkeypatch.setattr("app.api.integration.assign_doctor", lambda db, specialty: doc_ayur)
+
+        _start_kiosk_intake(client, "ayush", "Roster Scoping Patient")
+
+        general_names = {p["name"] for p in client.get("/api/patients", headers=general_headers).json()}
+        ayurveda_names = {p["name"] for p in client.get("/api/patients", headers=ayurveda_headers).json()}
+        assert "Roster Scoping Patient" not in general_names
+        assert "Roster Scoping Patient" in ayurveda_names
+
     def test_doctor_cannot_open_another_doctors_encounter(self, client, monkeypatch):
         doc_owner, headers_a = _register_doctor(client, "general", "Dr. Owner")
         _, headers_b = _register_doctor(client, "general", "Dr. Other")

@@ -112,6 +112,7 @@ class Encounter(Base):
     started_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     finalized_at = Column(DateTime, nullable=True)
     finalized_by = Column(String, nullable=True)
+    share_token = Column(String, unique=True, nullable=True, index=True)
     patient = relationship("Patient", back_populates="encounters")
     sessions = relationship("KioskSession", back_populates="encounter", cascade="all, delete-orphan")
     answers = relationship("IntakeAnswer", back_populates="encounter", cascade="all, delete-orphan")
@@ -308,8 +309,34 @@ class LedgerEntry(Base):
     deviation_reason = Column(String, nullable=True)
     doctor_rationale = Column(Text, nullable=True)
     advice = Column(JSON, default=list, nullable=False)
+    medicines = Column(JSON, default=list, nullable=False)
+    notes = Column(Text, nullable=True)
     follow_up_required = Column(Boolean, default=False, nullable=False)
     follow_up_timeframe = Column(String, nullable=True)
     amendment_of = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     encounter = relationship("Encounter", back_populates="ledger_entries")
+
+
+class Medicine(Base):
+    __tablename__ = "medicines"
+    id = Column(Integer, primary_key=True)
+    medicine_id = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    form = Column(String, nullable=False)  # tab/cap/syrup/cream/gel/injection/other
+    strength = Column(String, nullable=True)
+    practitioner_type = Column(String, nullable=False, index=True)  # general / ayurveda
+    used_count = Column(Integer, default=0, nullable=False)
+
+
+class PrescriptionTemplate(Base):
+    __tablename__ = "prescription_templates"
+    id = Column(Integer, primary_key=True)
+    template_id = Column(String, unique=True, index=True, nullable=False)
+    owner_username = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    diagnosis_label = Column(String, nullable=True)
+    medicines = Column(JSON, default=list, nullable=False)  # [{medicine_id, name, dosage, frequency, duration}]
+    advice_ids = Column(JSON, default=list, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
