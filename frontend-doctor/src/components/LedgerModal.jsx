@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DEVIATION_REASONS } from "../api/mock.js";
+import VoiceInput from "./VoiceInput.jsx";
 
 export default function LedgerModal({ patientName, onCancel, onSave, saving }) {
   const [treatmentChanged, setTreatmentChanged] = useState(true);
@@ -127,6 +128,7 @@ export default function LedgerModal({ patientName, onCancel, onSave, saving }) {
             placeholder="Anything the printed sheet should say in your own words — optional."
             onChange={(e) => setNotes(e.target.value)}
           />
+          <VoiceInput onInsert={(text) => setNotes((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text))} />
         </fieldset>
 
         <fieldset className="fs">

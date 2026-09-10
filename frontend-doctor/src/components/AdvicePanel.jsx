@@ -10,15 +10,21 @@
    - entries are coded, not free text, so they can be printed in the patient's
      own language and counted in aggregate reporting
    - the most-used block is frequency-ranked (Docon #05) from real usage, so
-     the common case is one tap */
+     the common case is one tap
+
+   The underlying diet/conduct advice is useful to any doctor, but "pathya"
+   and "apathya" are themselves Ayurvedic terms — the same reasoning that
+   keeps AYUSH assessment data away from a general-medicine account (see
+   Settings.jsx) says a general doctor shouldn't see that vocabulary either,
+   even though the feature itself stays available to them. */
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchAdviceLibrary } from "../api/client.js";
 import Catalogue from "./Catalogue.jsx";
 
-const KIND_LABEL = { pathya: "Pathya", apathya: "Apathya" };
-
-export default function AdvicePanel({ selected, onChange, language = "hi" }) {
+export default function AdvicePanel({ selected, onChange, language = "hi", practitionerType }) {
+  const isAyurveda = practitionerType === "ayurveda";
+  const KIND_LABEL = isAyurveda ? { pathya: "Pathya", apathya: "Apathya" } : { pathya: "Recommended", apathya: "Avoid" };
   const [library, setLibrary] = useState([]);
 
   useEffect(() => {
@@ -40,7 +46,7 @@ export default function AdvicePanel({ selected, onChange, language = "hi" }) {
   return (
     <section className="band advice" aria-labelledby="advice-h">
       <h2 className="bandhead" id="advice-h">
-        Pathya · apathya — advice for this encounter
+        {isAyurveda ? "Pathya · apathya — advice for this encounter" : "Advice for this encounter"}
       </h2>
 
       {selected.length ? (
@@ -74,8 +80,8 @@ export default function AdvicePanel({ selected, onChange, language = "hi" }) {
         selectedIds={chosen}
         onToggle={toggle}
         kinds={[
-          { key: "pathya", label: "Pathya" },
-          { key: "apathya", label: "Apathya" },
+          { key: "pathya", label: KIND_LABEL.pathya },
+          { key: "apathya", label: KIND_LABEL.apathya },
         ]}
         searchPlaceholder="Search advice — “warm water”, “दही”"
         renderSecondary={(a) =>

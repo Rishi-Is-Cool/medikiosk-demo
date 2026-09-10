@@ -216,6 +216,7 @@ export default function App() {
           <Encounter
             encounterId={encounterId}
             showAyush={showAyush}
+            practitionerType={doctorProfile?.practitioner_type}
             patients={patients}
             onSelectPatient={setEncounterId}
             onBack={() => setEncounterId(null)}

@@ -30,7 +30,7 @@ import MedicinePanel from "../components/MedicinePanel.jsx";
 import PatientRail from "../components/PatientRail.jsx";
 import PrintSheet from "../components/PrintSheet.jsx";
 
-export default function Encounter({ encounterId, showAyush, patients = [], onSelectPatient, onBack }) {
+export default function Encounter({ encounterId, showAyush, practitionerType, patients = [], onSelectPatient, onBack }) {
   const [snap, setSnap] = useState(null);
   const [error, setError] = useState("");
   const [view, setView] = useState(null);
@@ -315,6 +315,7 @@ export default function Encounter({ encounterId, showAyush, patients = [], onSel
                     selected={advice}
                     onChange={setAdvice}
                     language={snap.patient.preferred_language}
+                    practitionerType={practitionerType}
                   />
                 </div>
               </div>

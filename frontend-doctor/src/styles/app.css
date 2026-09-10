@@ -436,6 +436,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .form-error { font-size: var(--fs-sm); color: var(--emergency); font-weight: var(--weight-medium); }
 .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 
+/* Click-to-speak — VoiceInput.jsx */
+.voice-input { margin-top: var(--space-2); }
+.voice-mic { display: inline-flex; align-items: center; gap: 6px; }
+.voice-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+.voice-mic.listening { border-color: var(--emergency); color: var(--emergency); }
+.voice-mic.listening .voice-dot { background: var(--emergency); animation: voice-pulse 1s ease-in-out infinite; }
+@keyframes voice-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.voice-draft { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface-2); border-radius: var(--radius); border: 1px solid var(--line); }
+.voice-draft-text { font-size: var(--fs-sm); color: var(--text); font-style: italic; }
+.voice-draft-actions { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+
 /* 1366x768 is the realistic government consult-room monitor. */
 @media (max-width: 1200px) {
   .split { grid-template-columns: 1fr; }
