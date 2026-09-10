@@ -1,0 +1,643 @@
+/* ==========================================================================
+   MediKiosk — base stylesheet: reset, layout shell and shared primitives.
+   Loaded between tokens.css and components.css so component rules win.
+   Every colour here is a var() from tokens.css.
+   ========================================================================== */
+
+/* --- Reset ---------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  font-weight: var(--weight-normal);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+svg {
+  display: block;
+  flex: none;
+}
+
+/* A kiosk is a fixed appliance. Nothing should rubber-band, text-select or
+   long-press into a context menu under a patient's finger. */
+.mk-app {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mk-app button,
+.mk-app label {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* --- Focus ---------------------------------------------------------------
+   Visible focus is not optional. Kiosks are operated by staff with keyboards
+   during setup and by patients using assistive hardware.                    */
+
+:focus-visible {
+  outline: 3px solid var(--secondary);
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+
+/* --- Screen shell --------------------------------------------------------- */
+
+.mk-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.mk-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.mk-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  color: var(--primary);
+}
+
+.mk-topbar__spacer {
+  flex: 1;
+}
+
+.mk-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+.mk-main--top {
+  justify-content: flex-start;
+  padding-top: var(--space-4);
+}
+
+/* Content column. Wide enough for a grid of options, never so wide that a
+   line of instruction runs past comfortable reading length. */
+.mk-container {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.mk-container--narrow {
+  max-width: 720px;
+}
+
+.mk-actionbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  /* The primary action must never scroll off a kiosk screen — a patient who
+     cannot see "Next" is stuck, and there is no mouse wheel to discover it. */
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.mk-actionbar__spacer {
+  flex: 1;
+}
+
+/* --- Type ----------------------------------------------------------------- */
+
+.mk-h1 {
+  font-size: var(--fs-xl);
+  font-weight: var(--weight-bold);
+  line-height: 1.25;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.mk-h2 {
+  font-size: var(--fs-lg);
+  font-weight: var(--weight-bold);
+  line-height: 1.3;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.mk-display {
+  font-size: var(--fs-display);
+  font-weight: var(--weight-bold);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.mk-lead {
+  font-size: var(--fs-base);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.mk-help {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.mk-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.mk-measure {
+  max-width: var(--measure);
+}
+
+/* --- Card ----------------------------------------------------------------- */
+
+.mk-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.mk-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mk-sunken {
+  background: var(--surface-sunken);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+
+/* --- Buttons -------------------------------------------------------------
+   Every interactive element clears --target-min (56px at kiosk density).    */
+
+.mk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.mk-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.mk-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mk-btn--primary {
+  background: var(--primary);
+  color: var(--card);
+  font-weight: var(--weight-bold);
+  padding: 0 var(--space-5);
+}
+
+.mk-btn--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.mk-btn--secondary {
+  background: var(--card);
+  border-color: var(--line-strong);
+  color: var(--secondary);
+}
+
+.mk-btn--secondary:hover:not(:disabled) {
+  background: var(--secondary-soft);
+  border-color: var(--secondary);
+}
+
+.mk-btn--ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+
+.mk-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.mk-btn--danger {
+  background: var(--emergency);
+  color: var(--card);
+  font-weight: var(--weight-bold);
+}
+
+.mk-btn--lg {
+  min-height: calc(var(--target-min) + var(--space-2));
+  font-size: var(--fs-lg);
+}
+
+.mk-btn--block {
+  width: 100%;
+  /* Full-width buttons do not need the generous side padding a pill button
+     has — on a 375px phone it pushes the label into a two-line wrap. */
+  padding-inline: var(--space-3);
+}
+
+/* --- Choice tiles --------------------------------------------------------
+   The workhorse of the kiosk: a big, unambiguous, icon-supported target.
+   Used for languages, complaints, and every touch answer option.           */
+
+.mk-choices {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.mk-choices--wide {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.mk-choices--single {
+  grid-template-columns: 1fr;
+}
+
+.mk-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: calc(var(--target-min) + var(--space-3));
+  padding: var(--space-3);
+  text-align: left;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.mk-choice:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--row-hover);
+}
+
+.mk-choice[aria-pressed="true"],
+.mk-choice[data-selected="true"] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+
+.mk-choice__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.mk-choice[data-selected="true"] .mk-choice__icon {
+  background: var(--card);
+}
+
+.mk-choice__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mk-choice__label {
+  display: block;
+}
+
+.mk-choice__sub {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-normal);
+  color: var(--text-2);
+}
+
+.mk-choice[data-selected="true"] .mk-choice__sub {
+  color: var(--primary-ink);
+}
+
+.mk-choice__check {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  color: transparent;
+}
+
+.mk-choice[data-selected="true"] .mk-choice__check {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--card);
+}
+
+/* --- Inputs --------------------------------------------------------------- */
+
+.mk-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mk-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-2);
+}
+
+.mk-input,
+.mk-textarea {
+  width: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-3);
+  background: var(--card);
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius);
+  font-size: var(--fs-base);
+  color: var(--text);
+}
+
+.mk-textarea {
+  min-height: calc(var(--target-min) * 2);
+  resize: none;
+  line-height: 1.45;
+}
+
+.mk-input:focus,
+.mk-textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.mk-input::placeholder,
+.mk-textarea::placeholder {
+  color: var(--text-3);
+}
+
+/* --- Progress ------------------------------------------------------------- */
+
+.mk-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mk-progress__track {
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.mk-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width var(--dur-base) var(--ease);
+}
+
+.mk-progress__label {
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* --- Steps (the journey indicator in the top bar) ------------------------- */
+
+.mk-steps {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mk-steps__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--grade-empty);
+  transition: background var(--dur-base) var(--ease);
+}
+
+.mk-steps__dot[data-state="done"] {
+  background: var(--primary);
+}
+
+.mk-steps__dot[data-state="current"] {
+  background: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-soft);
+}
+
+/* --- Badges / pills ------------------------------------------------------- */
+
+.mk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px var(--space-2);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-medium);
+}
+
+.mk-pill--primary {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+
+.mk-pill--success {
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+
+.mk-pill--warning {
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.mk-pill--danger {
+  background: var(--emergency-soft);
+  color: var(--emergency-ink);
+}
+
+/* --- Recording ------------------------------------------------------------ */
+
+@keyframes mk-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.45;
+  }
+}
+
+.mk-rec-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--emergency);
+  animation: mk-pulse 1.4s var(--ease) infinite;
+}
+
+@keyframes mk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mk-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--primary);
+  animation: mk-spin 0.9s linear infinite;
+}
+
+/* --- Layout helpers ------------------------------------------------------- */
+
+.mk-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mk-stack--tight {
+  gap: var(--space-2);
+}
+
+.mk-stack--loose {
+  gap: var(--space-4);
+}
+
+.mk-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mk-row--wrap {
+  flex-wrap: wrap;
+}
+
+.mk-center {
+  text-align: center;
+}
+
+.mk-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Small viewports (the QR upload page runs on a patient's phone) ------- */
+
+@media (max-width: 640px) {
+  .mk-main {
+    padding: var(--space-3);
+    justify-content: flex-start;
+  }
+
+  .mk-topbar,
+  .mk-actionbar {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+
+  .mk-choices {
+    grid-template-columns: 1fr;
+  }
+
+  .mk-display {
+    font-size: var(--fs-xl);
+  }
+}

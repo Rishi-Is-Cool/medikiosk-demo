@@ -1,0 +1,801 @@
+/* ==========================================================================
+   MediKiosk — component styles.
+
+   globals.css holds the reset and the shared primitives; this file holds the
+   pieces that only exist here. Same rule applies: every colour is a var()
+   from tokens.css, and every size comes from the density scale so the whole
+   app grows and shrinks with data-density.
+   ========================================================================== */
+
+/* --- Modal ---------------------------------------------------------------- */
+
+.mk-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+}
+
+.mk-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--text);
+  opacity: 0.45;
+}
+
+.mk-modal__panel {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.22);
+}
+
+.mk-modal__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.mk-modal__head .mk-h2 {
+  flex: 1;
+}
+
+.mk-modal__close {
+  min-height: var(--target-min);
+  min-width: var(--target-min);
+  padding: 0;
+}
+
+.mk-help-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+/* --- Language switcher ---------------------------------------------------- */
+
+.mk-langswitch {
+  position: relative;
+}
+
+.mk-langswitch__trigger {
+  min-height: var(--target-min);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--fs-base);
+}
+
+.mk-langswitch__menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 40;
+  min-width: 240px;
+  padding: var(--space-1);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.16);
+}
+
+.mk-langswitch__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--target-min);
+  padding: 0 var(--space-2);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius) - 4px);
+  color: var(--text);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  text-align: left;
+}
+
+.mk-langswitch__item:hover {
+  background: var(--row-hover);
+}
+
+.mk-langswitch__item[data-selected="true"] {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+
+/* --- Start screen --------------------------------------------------------- */
+
+.mk-points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.mk-points__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-base);
+  color: var(--text-2);
+}
+
+.mk-points__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.mk-start {
+  min-height: calc(var(--target-min) * 1.6);
+  font-size: var(--fs-lg);
+  align-self: center;
+  padding-inline: var(--space-5);
+}
+
+/* --- Big status icon ------------------------------------------------------ */
+
+.mk-bigicon {
+  display: grid;
+  place-items: center;
+  width: 108px;
+  height: 108px;
+  margin: 0 auto;
+  border-radius: 50%;
+}
+
+.mk-bigicon[data-tone="success"] {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.mk-bigicon[data-tone="warning"] {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.mk-bigicon[data-tone="info"] {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+/* --- Consent -------------------------------------------------------------- */
+
+.mk-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  text-align: left;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.mk-consent:hover {
+  border-color: var(--primary);
+}
+
+.mk-consent[data-selected="true"] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.mk-consent__check {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  margin-top: 2px;
+  border: 2px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--card);
+  color: transparent;
+}
+
+.mk-consent[data-selected="true"] .mk-consent__check {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--card);
+}
+
+.mk-consent__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mk-consent__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--fs-base);
+  font-weight: var(--weight-bold);
+}
+
+.mk-consent__text {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.mk-consent[data-selected="true"] .mk-consent__text {
+  color: var(--primary-ink);
+}
+
+/* --- Question ------------------------------------------------------------- */
+
+.mk-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.mk-question__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.mk-question__text {
+  flex: 1;
+}
+
+.mk-question__helper {
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.mk-question__body {
+  padding-top: var(--space-1);
+}
+
+.mk-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+.mk-answer__voice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+/* No touch options above it — nothing to divide from. */
+.mk-answer__voice[data-bare="true"] {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* --- Section bar ---------------------------------------------------------
+   Sits above the progress bar on long interviews. The part name does the
+   orienting; the question count is the fine detail underneath it.          */
+
+.mk-sectionbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.mk-sectionbar__label {
+  font-size: var(--fs-base);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+/* --- Scanned-value confirmation ------------------------------------------ */
+
+.mk-scanned {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--success-ink);
+}
+
+/* --- Microphone ----------------------------------------------------------- */
+
+.mk-recorder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.mk-mic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.mk-mic__ring {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--card);
+  box-shadow: 0 0 0 10px var(--primary-soft);
+  transition: box-shadow var(--dur-base) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.mk-mic:hover:not(:disabled) .mk-mic__ring {
+  background: var(--primary-hover);
+  box-shadow: 0 0 0 16px var(--primary-soft);
+}
+
+.mk-mic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mk-mic__label {
+  font-size: var(--fs-base);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+/* --- Recording indicator -------------------------------------------------- */
+
+.mk-recording {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--emergency-soft);
+  border-radius: var(--radius);
+}
+
+.mk-recording__label {
+  font-size: var(--fs-base);
+  font-weight: var(--weight-bold);
+  color: var(--emergency-ink);
+  white-space: nowrap;
+}
+
+.mk-recording__bars {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 48px;
+}
+
+.mk-recording__bar {
+  width: 6px;
+  min-height: 6px;
+  border-radius: 999px;
+  background: var(--emergency);
+  transition: height 80ms linear;
+}
+
+.mk-recording__time {
+  font-size: var(--fs-base);
+  color: var(--emergency-ink);
+}
+
+/* --- Transcript ----------------------------------------------------------- */
+
+.mk-transcript {
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius);
+}
+
+.mk-transcript__head {
+  margin-bottom: var(--space-1);
+}
+
+.mk-transcript__text {
+  font-size: var(--fs-lg);
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.mk-extracted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.mk-extracted__row {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+
+.mk-extracted__row dt {
+  color: var(--text-2);
+  min-width: 40%;
+}
+
+.mk-extracted__row dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+  color: var(--text);
+}
+
+/* --- Scale ---------------------------------------------------------------- */
+
+.mk-scale {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.mk-scale__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--target-min) + var(--space-4));
+  padding: var(--space-3) var(--space-2);
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.mk-scale__step:hover:not(:disabled) {
+  border-color: var(--step-colour);
+}
+
+.mk-scale__step[data-selected="true"] {
+  border-color: var(--step-colour);
+  background: var(--row-hover);
+}
+
+.mk-scale__pips {
+  display: flex;
+  gap: 5px;
+}
+
+.mk-scale__pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--grade-empty);
+}
+
+.mk-scale__pip[data-on="true"] {
+  background: var(--step-colour);
+}
+
+.mk-scale__label {
+  text-align: center;
+  line-height: 1.25;
+}
+
+/* --- Processing / errors -------------------------------------------------- */
+
+.mk-processing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.mk-processing__label {
+  font-size: var(--fs-base);
+  font-weight: var(--weight-medium);
+  color: var(--text);
+}
+
+.mk-spinner--sm {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
+.mk-errorstate {
+  align-items: flex-start;
+  width: 100%;
+}
+
+.mk-errorstate__actions {
+  padding-top: var(--space-1);
+}
+
+/* --- Priority ------------------------------------------------------------- */
+
+.mk-priority {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-5) var(--space-4);
+  border-radius: var(--radius);
+  border-left: 8px solid currentColor;
+}
+
+.mk-priority[data-sev="critical"] {
+  background: var(--emergency-soft);
+  color: var(--emergency);
+}
+
+.mk-priority[data-sev="warning"] {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.mk-priority .mk-h1 {
+  color: currentColor;
+}
+
+.mk-priority__icon {
+  display: grid;
+  place-items: center;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--card);
+  color: currentColor;
+}
+
+.mk-priority__body,
+.mk-priority .mk-lead {
+  color: var(--text);
+}
+
+.mk-priority__actions {
+  justify-content: center;
+}
+
+/* --- Document upload (kiosk) ---------------------------------------------- */
+
+.mk-upload {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.mk-upload__qr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.mk-qr {
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-sizing: content-box;
+}
+
+.mk-qr img {
+  width: 100%;
+  height: 100%;
+}
+
+.mk-upload__url {
+  font-family: var(--font-mono);
+  word-break: break-all;
+  max-width: 300px;
+}
+
+.mk-upload__side {
+  min-width: 0;
+}
+
+.mk-upload__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-base);
+  font-weight: var(--weight-medium);
+}
+
+.mk-upload__status[data-active="true"] {
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+
+/* --- Step list ------------------------------------------------------------ */
+
+.mk-steplist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.mk-steplist__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-base);
+  color: var(--text);
+  text-align: left;
+}
+
+.mk-steplist__num {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
+}
+
+/* --- Document card -------------------------------------------------------- */
+
+.mk-doccard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.mk-doccard__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: var(--radius);
+  background: var(--secondary-soft);
+  color: var(--secondary);
+}
+
+.mk-doccard__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mk-doccard__name {
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Completion ----------------------------------------------------------- */
+
+.mk-complete__next {
+  text-align: left;
+  width: 100%;
+}
+
+.mk-complete__actions {
+  justify-content: center;
+}
+
+/* --- Mobile upload page --------------------------------------------------- */
+
+.mk-mobile .mk-main {
+  padding-bottom: var(--space-5);
+}
+
+.mk-preview {
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  background: var(--surface-sunken);
+  border-radius: var(--radius);
+  min-height: 220px;
+}
+
+.mk-preview img {
+  max-width: 100%;
+  max-height: 46dvh;
+  border-radius: calc(var(--radius) - 4px);
+}
+
+.mk-preview__file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  padding: var(--space-4);
+  text-align: center;
+  word-break: break-all;
+}
+
+/* --- Toggle-style buttons (registration sex selector) --------------------- */
+
+.mk-btn[data-selected="true"] {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+}
+
+/* --- Narrow screens ------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .mk-upload {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .mk-upload__side {
+    width: 100%;
+  }
+
+  .mk-question__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
