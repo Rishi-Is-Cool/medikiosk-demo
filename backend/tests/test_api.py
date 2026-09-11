@@ -547,27 +547,39 @@ class TestFHIRABDM:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestAdminDashboard:
-    def test_system_stats(self, client):
+    @pytest.fixture
+    def admin_headers(self, client):
+        login = client.post("/api/auth/token", data={"username": "reception_admin_01", "password": "admin@MediK2026"})
+        return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    def test_stats_requires_admin(self, client):
+        """These list every patient in the hospital by name — a doctor token must not work."""
+        assert client.get("/api/admin/stats").status_code == 401
+        doctor_login = client.post("/api/auth/token", data={"username": "doctor_opd_101", "password": "doc@MediK2026"})
+        doctor_headers = {"Authorization": f"Bearer {doctor_login.json()['access_token']}"}
+        assert client.get("/api/admin/stats", headers=doctor_headers).status_code == 403
+
+    def test_system_stats(self, client, admin_headers):
         """Admin stats endpoint returns aggregate counts."""
-        response = client.get("/api/admin/stats")
+        response = client.get("/api/admin/stats", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
         assert "patients" in data
         assert "clinical_summaries" in data
         assert data["system_health"] == "operational"
 
-    def test_list_patients_paginated(self, client):
+    def test_list_patients_paginated(self, client, admin_headers):
         """Admin patient list returns paginated results."""
-        response = client.get("/api/admin/patients?skip=0&limit=10")
+        response = client.get("/api/admin/patients?skip=0&limit=10", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
         assert "total" in data
         assert "patients" in data
         assert isinstance(data["patients"], list)
 
-    def test_today_queue(self, client):
+    def test_today_queue(self, client, admin_headers):
         """Today's OPD queue returns patients registered today."""
-        response = client.get("/api/admin/queue/today")
+        response = client.get("/api/admin/queue/today", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
         assert "queue" in data

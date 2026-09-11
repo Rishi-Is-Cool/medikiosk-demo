@@ -4,21 +4,32 @@ Provides system-wide statistics, patient queue management, and OPD dashboard end
 Used by hospital administration and OPD supervisor screens.
 """
 import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database.connection import get_db
 from app.database.schemas import Patient, ClinicalHistory, Document, LabResult
+from app.utils.security import decode_token
 
 router = APIRouter(prefix="/api/admin", tags=["Admin & OPD Dashboard"])
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+
+
+def _require_admin(payload: str = Depends(_oauth2_scheme)) -> None:
+    """These endpoints list every patient in the hospital by name — the same
+    kind of hospital-wide access the /admin/overview endpoints in
+    integration.py are scoped to, so they get the same gate."""
+    if decode_token(payload).get("role") != "admin":
+        raise HTTPException(403, "Admin access required")
 
 
 @router.get(
     "/stats",
     summary="System-wide statistics dashboard for hospital administration"
 )
-def get_system_stats(db: Session = Depends(get_db)):
+def get_system_stats(db: Session = Depends(get_db), _: None = Depends(_require_admin)):
     """
     Returns aggregate statistics for the OPD administration dashboard:
     - Total patients registered today and all-time
@@ -94,7 +105,8 @@ def get_system_stats(db: Session = Depends(get_db)):
 def list_all_patients(
     skip: int = 0,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_admin),
 ):
     """
     Returns paginated list of all registered patients.
@@ -127,7 +139,7 @@ def list_all_patients(
     "/queue/today",
     summary="Today's OPD patient queue with intake completion status"
 )
-def get_today_queue(db: Session = Depends(get_db)):
+def get_today_queue(db: Session = Depends(get_db), _: None = Depends(_require_admin)):
     """
     Returns the list of patients registered today and whether their
     clinical history intake is complete (has a summary generated).

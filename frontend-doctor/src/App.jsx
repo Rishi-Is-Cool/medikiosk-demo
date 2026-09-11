@@ -16,6 +16,7 @@ import Encounter from "./screens/Encounter.jsx";
 import Patients from "./screens/Patients.jsx";
 import PatientDetail from "./screens/PatientDetail.jsx";
 import Settings from "./screens/Settings.jsx";
+import HospitalOverview from "./screens/HospitalOverview.jsx";
 import Login from "./screens/Login.jsx";
 import Signup from "./screens/Signup.jsx";
 import SyncStatus from "./components/SyncStatus.jsx";
@@ -92,6 +93,30 @@ export default function App() {
       <Signup onSignedUp={onAuthenticated} onGoToLogin={() => setAuthView("login")} />
     ) : (
       <Login onLoggedIn={onAuthenticated} onGoToSignup={() => setAuthView("signup")} />
+    );
+  }
+
+  /* A separate shell, not another `view` in the doctor router below: an
+     admin account has no practitioner_type, no assigned patients, no
+     Settings — threading "is this an admin?" through clinicTitle, back(),
+     and every doctor-only screen would be far more fragile than just
+     branching once, here. */
+  if (doctorProfile?.role === "admin") {
+    return (
+      <div className="app">
+        <header className="appbar">
+          <span className="applogo">MediKiosk</span>
+          <span className="apptitle">Hospital Overview</span>
+          <nav className="appnav" aria-label="Sections">
+            <button type="button" className="navbtn" onClick={logout}>
+              Log out
+            </button>
+          </nav>
+        </header>
+        <main className="appmain">
+          <HospitalOverview />
+        </main>
+      </div>
     );
   }
 

@@ -56,11 +56,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     OAuth2 password flow for kiosk terminal / physician authentication.
     Returns a JWT bearer token valid for 24 hours.
 
-    Doctor accounts are DB-backed (real signup, hashed passwords — see
-    /register-doctor) and checked first; kiosk-terminal and admin accounts
-    still use the in-memory credential store below.
+    Doctor and admin accounts are DB-backed (real signup or seeded, hashed
+    passwords) and checked first; only the kiosk terminal still uses the
+    in-memory credential store below.
     """
-    db_user = db.query(User).filter(User.username == form_data.username, User.role == "doctor").first()
+    db_user = db.query(User).filter(User.username == form_data.username, User.role.in_(["doctor", "admin"])).first()
     if db_user and db_user.hashed_password and verify_password(form_data.password, db_user.hashed_password):
         access_token = create_access_token(data={"sub": db_user.username, "role": db_user.role})
         return {"access_token": access_token, "token_type": "bearer", "role": db_user.role}

@@ -181,4 +181,15 @@ def seed_reference_data(db: Session) -> None:
         db.flush()
         copy_default_templates(db, vaidya_username, "ayurveda")
 
+    # The hospital-overview console (reception/admin, not tied to one
+    # specialty) logs in as a real DB-backed account too, same as doctors —
+    # no separate in-memory credential path to keep in sync. It has no
+    # DoctorProfile row on purpose: practitioner_type/department belong to a
+    # doctor's own console, not to a role that looks across all of them.
+    admin_username = os.getenv("ADMIN_USERNAME", "reception_admin_01")
+    admin_password = os.getenv("ADMIN_PASSWORD", "admin@MediK2026")
+    if not db.query(User).filter(User.username == admin_username).first():
+        db.add(User(username=admin_username, role="admin", display_name="Hospital Admin",
+                    hashed_password=get_password_hash(admin_password)))
+
     db.commit()

@@ -151,6 +151,48 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .qbtn.prio { background: var(--emergency); border-color: var(--emergency); color: var(--card); }
 
 /* ======================================================================
+   HOSPITAL OVERVIEW (admin/reception)
+   ====================================================================== */
+
+.overview { padding-bottom: var(--space-4); }
+.ov-empty { padding: var(--space-3) var(--space-4); font-size: var(--fs-sm); color: var(--text-3); }
+
+.ov-alerts { display: flex; flex-direction: column; gap: 1px; background: var(--line); }
+.ov-alert {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); background: var(--card);
+  border-left: 4px solid var(--line-strong);
+}
+.ov-alert.sev-critical, .ov-alert.sev-high { border-left-color: var(--emergency); background: var(--emergency-soft); }
+.ov-alert.sev-moderate { border-left-color: var(--warning); background: var(--warning-soft); }
+.ov-alert-sev {
+  flex: none; width: 64px; font-size: var(--fs-xs); font-weight: var(--weight-bold);
+  text-transform: uppercase; letter-spacing: .06em; padding-top: 2px;
+}
+.sev-critical .ov-alert-sev, .sev-high .ov-alert-sev { color: var(--emergency); }
+.sev-moderate .ov-alert-sev { color: var(--warning); }
+.ov-alert-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.ov-alert-headline { font-weight: var(--weight-medium); }
+.ov-alert-detail { font-size: var(--fs-sm); color: var(--text-2); margin-top: 2px; }
+.ov-alert-who { flex: none; font-size: var(--fs-xs); color: var(--text-3); text-align: right; white-space: nowrap; }
+
+.ov-doctor { border-bottom: 1px solid var(--line); }
+.ov-doctor-head {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); background: var(--surface-sunken);
+}
+.ov-doctor-name { font-weight: var(--weight-bold); }
+.ov-doctor-counts { margin-left: auto; font-size: var(--fs-xs); color: var(--text-3); }
+.ov-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--line); font-size: var(--fs-sm);
+}
+.ov-row.p { background: var(--emergency-soft); }
+.ov-who { display: flex; flex-direction: column; min-width: 160px; }
+.ov-complaint { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+
+/* ======================================================================
    ENCOUNTER
    ====================================================================== */
 

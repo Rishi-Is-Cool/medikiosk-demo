@@ -155,6 +155,13 @@ export async function fetchQueue() {
   return get("/api/queue");
 }
 
+/* Admin/reception only — a doctor's own token gets a 403 from this route.
+   No mock fixture: an admin profile only exists against the real backend,
+   so this is never reached in mock mode. */
+export async function fetchHospitalOverview() {
+  return get("/api/admin/overview");
+}
+
 /* viewerShowsAyush mirrors the doctor's display preference. The real endpoint
    applies it server-side and returns ayush: null — we replicate that here so
    the component never learns to expect data it should not receive. */

@@ -714,6 +714,16 @@ def _doctor(payload: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
     return data
 
 
+def _admin(payload: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+    """Strictly admin — unlike _doctor, an individual doctor may not call
+    these: the hospital-wide queue and alert feed cross every specialty and
+    every other doctor's patients, which is exactly what a doctor's own
+    console is scoped to never show them."""
+    data = decode_token(payload)
+    if data.get("role") != "admin": raise HTTPException(403, "Admin access required")
+    return data
+
+
 def _require_own_encounter(encounter: Encounter, clinician: Dict[str, Any]) -> None:
     """A doctor may only act on encounters assigned to them — this is what keeps
     a general-medicine doctor from ever seeing (or writing to) an Ayurveda
@@ -838,6 +848,65 @@ def doctor_queue(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Dep
             "patients": [{"encounter_id": e.encounter_id, "token": str(e.queue_token) if e.queue_token else str(i + 1), "name": e.patient.name, "age_years": e.patient.age, "sex": e.patient.gender.lower(), "complaint": e.chief_complaint, "department": department, "intake_framework": e.intake_framework, "intake_state": e.status, "wait_min": wait_by_id[e.encounter_id], "priority": e.priority in {"urgent", "priority"}} for i, e in enumerate(encounters)]}
 
 
+# ─── Hospital overview (admin/reception) ──────────────────────────────────────
+
+@doctor_router.get("/admin/overview")
+def hospital_overview(admin: Dict[str, Any] = Depends(_admin), db: Session = Depends(get_db)):
+    """One screen for the whole hospital: every doctor's queue side by side,
+    plus every unresolved red-flag alert regardless of which doctor's
+    patient it's on — the two things a doctor's own console deliberately
+    never shows across specialties (see _require_own_encounter)."""
+    doctors = db.query(DoctorProfile).order_by(DoctorProfile.practitioner_type, DoctorProfile.name).all()
+    all_encounters = (db.query(Encounter).options(joinedload(Encounter.patient))
+                       .filter(Encounter.assigned_doctor_username.isnot(None)).all())
+    by_doctor: Dict[str, List[Encounter]] = {}
+    for e in all_encounters:
+        by_doctor.setdefault(e.assigned_doctor_username, []).append(e)
+
+    current_time = now()
+    today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    doctor_rows = []
+    for profile in doctors:
+        encs = by_doctor.get(profile.username, [])
+        waiting = [e for e in encs if e.status != "finalized"]
+        seen_today = sum(1 for e in encs if e.status == "finalized" and e.finalized_at and e.finalized_at >= today_start)
+        doctor_rows.append({
+            "username": profile.username, "name": profile.name, "practitioner_type": profile.practitioner_type,
+            "department": profile.department, "in_queue": len(waiting), "seen_today": seen_today,
+            "patients": [{"encounter_id": e.encounter_id, "name": e.patient.name, "age_years": e.patient.age,
+                          "sex": e.patient.gender.lower(), "complaint": e.chief_complaint, "status": e.status,
+                          "priority": e.priority in {"urgent", "priority"},
+                          "wait_min": max(0, int((current_time - e.started_at).total_seconds() // 60)) if e.started_at else None}
+                         for e in sorted(waiting, key=lambda e: e.started_at or current_time)],
+        })
+
+    alerts = (db.query(ClinicalAlert).options(joinedload(ClinicalAlert.encounter).joinedload(Encounter.patient))
+              .filter(ClinicalAlert.resolved_at.is_(None)).order_by(ClinicalAlert.id.desc()).all())
+    alert_rows = []
+    for a in alerts:
+        enc = a.encounter
+        doctor = next((d for d in doctors if d.username == (enc.assigned_doctor_username if enc else None)), None)
+        alert_rows.append({
+            "alert_id": a.alert_id, "severity": a.severity, "headline": a.headline, "detail": a.detail,
+            "patient_name": enc.patient.name if enc and enc.patient else None,
+            "encounter_id": enc.encounter_id if enc else None,
+            "doctor_name": doctor.name if doctor else None,
+        })
+
+    return {
+        "generated_at": current_time.isoformat() + "Z",
+        "hospital_stats": {
+            "doctors_on_duty": len(doctors),
+            "total_in_queue": sum(d["in_queue"] for d in doctor_rows),
+            "total_seen_today": sum(d["seen_today"] for d in doctor_rows),
+            "open_alerts": len(alert_rows),
+        },
+        "doctors": doctor_rows,
+        "alerts": alert_rows,
+    }
+
+
 @doctor_router.get("/encounters/{encounter_id}/snapshot")
 def doctor_snapshot(encounter_id: str, background_tasks: BackgroundTasks, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     # joinedload(.answers) too: build_ayush_block() reads encounter.answers
@@ -922,8 +991,15 @@ def _profile_payload(p: DoctorProfile) -> Dict[str, Any]:
 @doctor_router.get("/me")
 def get_doctor_profile(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     profile = db.query(DoctorProfile).filter(DoctorProfile.username == clinician.get("sub")).first()
-    if not profile: raise HTTPException(404, "No profile on file for this account")
-    return _profile_payload(profile)
+    if not profile:
+        # An admin/reception account has no DoctorProfile — practitioner_type
+        # and department are meaningless for a role that looks across every
+        # doctor, not one. The console branches on role to show the
+        # hospital-overview screen instead of a doctor's own clinic.
+        if clinician.get("role") == "admin":
+            return {"role": "admin", "name": clinician.get("sub")}
+        raise HTTPException(404, "No profile on file for this account")
+    return {**_profile_payload(profile), "role": clinician.get("role", "doctor")}
 
 
 @doctor_router.put("/me")
