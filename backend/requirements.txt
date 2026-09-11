@@ -26,6 +26,12 @@ google-genai>=1.0.0
 pillow>=10.0.0
 faster-whisper>=1.0.0
 
+# ─── Text-to-speech ─────────────────────────────────────────────────────────────
+# Free, no API key — wraps Microsoft Edge's online neural TTS. Chosen over the
+# browser's own speechSynthesis fallback specifically for its real en-IN/hi-IN/
+# mr-IN voices, which most OS/browser voice packs don't ship at all.
+edge-tts>=7.0.0
+
 # ─── Configuration ─────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
 

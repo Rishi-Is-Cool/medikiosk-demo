@@ -1,6 +1,7 @@
 """Kiosk and doctor-console integration API for the MVP."""
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import secrets
@@ -502,15 +503,48 @@ async def transcribe_speech(session_id: str = Form(...), question_id: str = Form
             "confidence": transcript.confidence or 0.0, "duration_ms": transcript.duration_ms or 0}
 
 
-@kiosk_router.post("/speech/synthesize")
-def synthesize_speech(body: Dict[str, str]):
-    """Text-to-speech for question/instruction prompts.
+# Real Indian-accented neural voices (Microsoft Edge's online TTS, free, no
+# API key) — most OS/browser voice packs the browser-fallback path relies on
+# don't ship en-IN/hi-IN/mr-IN at all, which is why that fallback so often
+# reads English/Hindi in a US or UK voice. Covers every kiosk language,
+# including the ones marked "coming soon" in the UI, at no extra cost.
+_TTS_VOICE = {
+    "en": "en-IN-NeerjaNeural", "hi": "hi-IN-SwaraNeural", "mr": "mr-IN-AarohiNeural",
+    "bn": "bn-IN-TanishaaNeural", "gu": "gu-IN-DhwaniNeural", "ta": "ta-IN-PallaviNeural", "te": "te-IN-ShrutiNeural",
+}
+_TTS_MAX_CHARS = 600
 
-    No TTS provider is configured in this deployment. The frontend's contract
-    treats a null audio_url as 'no server audio available' and falls back to
-    the browser's own speech synthesis.
+
+@kiosk_router.post("/speech/synthesize")
+async def synthesize_speech(body: Dict[str, str]):
+    """Text-to-speech for question/instruction prompts, in a real Indian
+    voice. Returns a data: URL (base64 audio/mpeg) rather than a file path —
+    these clips are a sentence or two, short enough that a second file-
+    serving route and its own auth story isn't worth adding.
+
+    Any failure (edge-tts's underlying service is an unofficial, unauthenticated
+    endpoint — it can be flaky) falls back to null exactly per the existing
+    contract, so the frontend's browser-synthesis fallback still works as
+    the safety net it was already built to be.
     """
-    return {"audio_url": None}
+    text = (body.get("text") or "").strip()[:_TTS_MAX_CHARS]
+    language = (body.get("language") or "en").lower()
+    if not text:
+        return {"audio_url": None}
+    voice = _TTS_VOICE.get(language, _TTS_VOICE["en"])
+    try:
+        import edge_tts
+        communicate = edge_tts.Communicate(text, voice, rate="-8%")  # elderly, unwell audience — match the browser path's 0.92x rate
+        audio = bytearray()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio.extend(chunk["data"])
+        if not audio:
+            return {"audio_url": None}
+        return {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(bytes(audio)).decode('ascii')}"}
+    except Exception as exc:
+        logger.warning("TTS synthesis failed (falling back to browser speech): %s", exc)
+        return {"audio_url": None}
 
 
 # ─── Documents (QR → phone upload) ────────────────────────────────────────────
