@@ -657,21 +657,27 @@ def _process_document(bind: Engine, document_id: str, path: str, kind: str, pati
         document.ocr_text = ocr.get("ocr_text") or ""
         extraction.provider = ocr.get("engine_used", "local")
         extraction.status = "completed" if ok else "unavailable"
+        # "lines" is the OCR text broken into {text, field} entries — field
+        # matches the locator on the ClinicalFact this line produced, so the
+        # Evidence panel can box the one line a fact was extracted from.
         extraction.payload = {"diagnoses": ocr.get("diagnoses") or [], "medications": ocr.get("medications") or [],
-                              "labs": ocr.get("lab_results") or [], "error": ocr.get("error")}
+                              "labs": ocr.get("lab_results") or [], "lines": ocr.get("ocr_lines") or [],
+                              "error": ocr.get("error")}
         if ok:
             for diagnosis in ocr.get("diagnoses") or []:
-                create_fact(db, patient_id=patient_id, encounter_id=encounter_id, fact_type="condition", raw_value=diagnosis,
-                            source_type="document", source_id=document_id)
+                create_fact(db, patient_id=patient_id, encounter_id=encounter_id, fact_type="condition",
+                            raw_value=diagnosis.get("value", "Condition"), source_type="document", source_id=document_id,
+                            locator={"field": diagnosis["field"]} if diagnosis.get("field") else None)
             for medication in ocr.get("medications") or []:
                 create_fact(db, patient_id=patient_id, encounter_id=encounter_id, fact_type="medication",
                             raw_value=medication.get("name", "Medication"), source_type="document", source_id=document_id,
-                            details=medication)
+                            details=medication, locator={"field": medication["field"]} if medication.get("field") else None)
             for lab in ocr.get("lab_results") or []:
                 create_fact(db, patient_id=patient_id, encounter_id=encounter_id, fact_type="investigation",
                             raw_value=lab.get("test_name", "Lab result"), source_type="document", source_id=document_id,
                             details={"value": lab.get("value"), "unit": lab.get("unit"), "reference_range": lab.get("reference_range"),
-                                     "abnormal": lab.get("abnormal"), "interpretation": lab.get("interpretation")})
+                                     "abnormal": lab.get("abnormal"), "interpretation": lab.get("interpretation")},
+                            locator={"field": lab["field"]} if lab.get("field") else None)
         add_timeline_event(db, patient_id, encounter_id, "document",
                            f"Uploaded {document.document_type.replace('_', ' ')}", "document", document_id)
         db.commit()
@@ -716,7 +722,7 @@ def _duration_text(answer_facts: List[ClinicalFact]) -> str:
     return next((f.raw_value for f in answer_facts if (f.details or {}).get("question_id") == "duration"), "")
 
 
-def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
+def _snapshot(db: Session, encounter: Encounter, background_tasks: Optional[BackgroundTasks] = None) -> Dict[str, Any]:
     patient = encounter.patient; facts = db.query(ClinicalFact).options(joinedload(ClinicalFact.provenance)).filter(ClinicalFact.patient_id == patient.patient_id).all()
     by_type = lambda typ: [f for f in facts if f.fact_type == typ]
     src = lambda f: source_for_fact(f)
@@ -757,7 +763,19 @@ def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
                             "summary": previous_encounter.chief_complaint or "Previous encounter",
                             "source": {"type": "prior_encounter", "id": previous_encounter.encounter_id}} if previous_encounter else None),
             "documents": [{"document_id": d.document_id, "doc_type": d.document_type, "dated": d.document_date, "title": d.file_name, "page_count": 1} for d in docs]}
-    db.add(PhysicianSnapshot(snapshot_id=ref("snap"), encounter_id=encounter.encounter_id, payload=snap)); db.commit()
+    # PhysicianSnapshot is a write-only audit log — nothing in this codebase
+    # ever reads it back — so it doesn't need to block the response. Deferred
+    # via BackgroundTasks, which FastAPI runs *after* the response is sent
+    # but *before* the get_db() dependency closes this same session, so this
+    # still commits reliably without opening a second DB connection (and
+    # without escaping the test-DB override a fresh SessionLocal() would).
+    def _save_snapshot_audit():
+        db.add(PhysicianSnapshot(snapshot_id=ref("snap"), encounter_id=encounter.encounter_id, payload=snap))
+        db.commit()
+    if background_tasks is not None:
+        background_tasks.add_task(_save_snapshot_audit)
+    else:
+        _save_snapshot_audit()
     return snap
 
 
@@ -765,18 +783,20 @@ def _snapshot(db: Session, encounter: Encounter) -> Dict[str, Any]:
 def doctor_queue(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     username = clinician.get("sub")
     profile = db.query(DoctorProfile).filter(DoctorProfile.username == username).first()
-    encounters = (db.query(Encounter).options(joinedload(Encounter.patient))
-                  .filter(Encounter.status != "finalized", Encounter.assigned_doctor_username == username)
-                  .order_by(Encounter.started_at).all())
+    # One query for every encounter this doctor has ever been assigned,
+    # split in Python, instead of a second round-trip just to COUNT today's
+    # finalized ones — each extra query costs a real ~400ms+ round-trip on
+    # the cross-region Supabase pooler this is deployed against.
+    all_encounters = (db.query(Encounter).options(joinedload(Encounter.patient))
+                       .filter(Encounter.assigned_doctor_username == username).all())
+    encounters = sorted((e for e in all_encounters if e.status != "finalized"), key=lambda e: e.started_at or now())
     department = ("Ayurveda OPD" if profile and profile.practitioner_type == "ayurveda" else "General Medicine OPD") if profile else "MediKiosk OPD"
 
     current_time = now()
     wait_by_id = {e.encounter_id: max(0, int((current_time - e.started_at).total_seconds() // 60)) if e.started_at else None for e in encounters}
     wait_minutes = [w for w in wait_by_id.values() if w is not None]
     today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
-    seen_today = (db.query(Encounter)
-                  .filter(Encounter.assigned_doctor_username == username, Encounter.status == "finalized", Encounter.finalized_at >= today_start)
-                  .count())
+    seen_today = sum(1 for e in all_encounters if e.status == "finalized" and e.finalized_at and e.finalized_at >= today_start)
     stats = {
         "in_queue": len(encounters),
         "seen_today": seen_today,
@@ -788,11 +808,15 @@ def doctor_queue(clinician: Dict[str, Any] = Depends(_doctor), db: Session = Dep
 
 
 @doctor_router.get("/encounters/{encounter_id}/snapshot")
-def doctor_snapshot(encounter_id: str, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
-    encounter = db.query(Encounter).options(joinedload(Encounter.patient)).filter(Encounter.encounter_id == encounter_id).first()
+def doctor_snapshot(encounter_id: str, background_tasks: BackgroundTasks, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+    # joinedload(.answers) too: build_ayush_block() reads encounter.answers
+    # for any AYUSH encounter — without this it's a lazy-loaded relationship,
+    # a second full round-trip that only shows up for Ayurveda patients.
+    encounter = (db.query(Encounter).options(joinedload(Encounter.patient), joinedload(Encounter.answers))
+                 .filter(Encounter.encounter_id == encounter_id).first())
     if not encounter: raise HTTPException(404, "Encounter not found")
     _require_own_encounter(encounter, clinician)
-    return _snapshot(db, encounter)
+    return _snapshot(db, encounter, background_tasks)
 
 
 @doctor_router.get("/encounters/{encounter_id}/carry-forward")
@@ -889,7 +913,14 @@ def update_doctor_profile(update: Dict[str, Any], clinician: Dict[str, Any] = De
 def doctor_document(document_id: str, _: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     doc = db.query(Document).filter(Document.document_id == document_id).first()
     if not doc: raise HTTPException(404, "Document not found")
-    return {"document_id": doc.document_id, "dated": doc.document_date, "lines": [{"text": line} for line in (doc.ocr_text or "").splitlines()]}
+    extraction = db.query(DocumentExtraction).filter(DocumentExtraction.document_id == document_id).first()
+    # Structured lines (each tagged with the field it was extracted for, if
+    # any) let the Evidence panel box the exact line a fact came from.
+    # Documents extracted before this existed only have the plain OCR text.
+    lines = (extraction.payload or {}).get("lines") if extraction else None
+    if not lines:
+        lines = [{"text": line} for line in (doc.ocr_text or "").splitlines()]
+    return {"document_id": doc.document_id, "dated": doc.document_date, "lines": lines}
 
 
 @doctor_router.post("/encounters/{encounter_id}/qa")

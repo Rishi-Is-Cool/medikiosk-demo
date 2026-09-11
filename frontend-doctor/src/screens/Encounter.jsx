@@ -46,7 +46,7 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
   const [adviceLibrary, setAdviceLibrary] = useState([]); // for template-applied advice lookups
   const [ayushEdits, setAyushEdits] = useState([]); // doctor amendments to the kiosk reading
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const [evCollapsed, setEvCollapsed] = useState(false);
+  const [evCollapsed, setEvCollapsed] = useState(true);
   const [printing, setPrinting] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(null);
   const [shareToken, setShareToken] = useState(null);
@@ -283,10 +283,10 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
             </div>
           </section>
 
-          {/* Zone 2 — the scan. HPI and pathya/apathya advice read side by
-              side as one collapsible "Advice & Management" section — between
-              them the longest part of the scan, and collapsible so a doctor
-              who has already read both gets that space back. */}
+          {/* Zone 2 — the scan. History, collapsible so a doctor who has
+              already read it gets that space back — then the journey
+              timeline right underneath, so complaint, history and trend
+              read as one continuous block before any scrolling. */}
           <section className="band">
             <button
               type="button"
@@ -294,39 +294,23 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
               onClick={() => setMgmtCollapsed((v) => !v)}
               aria-expanded={!mgmtCollapsed}
             >
-              <h2 className="bandhead" style={{ marginBottom: 0 }}>Advice &amp; Management</h2>
+              <h2 className="bandhead" style={{ marginBottom: 0 }}>History</h2>
               <span className={`collapse-chevron ${mgmtCollapsed ? "" : "open"}`} aria-hidden="true">▾</span>
             </button>
             {!mgmtCollapsed ? (
-              <div className="mgmt-grid">
-                <div>
-                  <h3>{s.hpi.label} · {s.hpi.framework}</h3>
-                  <dl className="socr">
-                    {s.hpi.items.map((it) => (
-                      <div className="sc" key={it.key}>
-                        <dt>{it.label}</dt>
-                        <dd>{it.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-                <div>
-                  <AdvicePanel
-                    selected={advice}
-                    onChange={setAdvice}
-                    language={snap.patient.preferred_language}
-                    practitionerType={practitionerType}
-                  />
-                </div>
+              <div className="hpi-block">
+                <h3>{s.hpi.label} · {s.hpi.framework}</h3>
+                <dl className="socr">
+                  {s.hpi.items.map((it) => (
+                    <div className="sc" key={it.key}>
+                      <dt>{it.label}</dt>
+                      <dd>{it.value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             ) : null}
           </section>
-
-          <DashavidhaPanel
-            ayush={snap.ayush}
-            onOpenSource={openSource}
-            onEdit={(e) => setAyushEdits((prev) => [...prev.filter((p) => p.key !== e.key), e])}
-          />
 
           <section className="band">
             <div className="tl-head">
@@ -338,6 +322,12 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
             </div>
             <TrendTable trend={snap.trend} onOpenSource={openSource} />
           </section>
+
+          <DashavidhaPanel
+            ayush={snap.ayush}
+            onOpenSource={openSource}
+            onEdit={(e) => setAyushEdits((prev) => [...prev.filter((p) => p.key !== e.key), e])}
+          />
 
           {carried.length ? (
             <section className="band carried">
@@ -361,6 +351,13 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
             advice={advice}
             onApplyAdvice={setAdvice}
             adviceLibrary={adviceLibrary}
+          />
+
+          <AdvicePanel
+            selected={advice}
+            onChange={setAdvice}
+            language={snap.patient.preferred_language}
+            practitionerType={practitionerType}
           />
 
           <section className="band last">

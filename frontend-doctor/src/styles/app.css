@@ -79,7 +79,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .who.right { margin-left: auto; }
 
 .stats {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px; background: var(--line); border-bottom: 1px solid var(--line);
 }
 .stat { display: flex; flex-direction: column; background: var(--card); padding: var(--space-2) var(--space-4); }
@@ -101,7 +101,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .qrow {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1.5fr) minmax(0, 2fr) 118px 168px 74px 104px;
+  grid-template-columns: 64px minmax(0, 1.5fr) minmax(0, 2fr) 118px 168px 104px;
   align-items: center; gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
   background: var(--card); border-bottom: 1px solid var(--line);
@@ -284,9 +284,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .collapse-chevron { flex: none; transition: transform var(--dur-base) var(--ease); color: var(--text-3); }
 .collapse-chevron.open { transform: rotate(180deg); }
-.mgmt-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); margin-top: var(--space-3); }
-.mgmt-grid h3 { font-size: 13px; font-weight: var(--weight-normal); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: var(--space-2); }
-@media (max-width: 1200px) { .mgmt-grid { grid-template-columns: 1fr; } }
+.hpi-block { margin-top: var(--space-3); }
+.hpi-block h3 { font-size: 13px; font-weight: var(--weight-normal); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: var(--space-2); }
 
 /* auto-fit rather than a fixed 4-up grid: a patient who has answered one
    SOCRATES question shouldn't leave three empty column slots sitting next
@@ -455,7 +454,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .cols, .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .socr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .qrow { grid-template-columns: 56px minmax(0, 1.4fr) minmax(0, 1.6fr) 110px 100px; }
-  .qrow .wait { display: none; }
 }
 
 /* ======================================================================

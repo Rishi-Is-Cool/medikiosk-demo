@@ -87,7 +87,6 @@ function QueueList({ data, onOpen }) {
       <div className="stats">
         <Stat n="Seen today" v={data.stats.seen_today} />
         <Stat n="In queue" v={data.stats.in_queue} />
-        <Stat n="Median wait" v={data.stats.median_wait_min} unit="min" />
         <Stat n="Intake complete" v={data.stats.intake_complete} unit={`of ${data.stats.in_queue}`} />
       </div>
 
@@ -155,7 +154,6 @@ function Row({ p, onOpen, variant, cta }) {
           {intake.label}
         </span>
       </span>
-      <span className="wait mk-num">{p.wait_min == null ? "—" : `${p.wait_min} min`}</span>
       <button
         type="button"
         className={`qbtn ${variant === "p" ? "prio" : ""}`}

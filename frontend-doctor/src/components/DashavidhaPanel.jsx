@@ -41,20 +41,22 @@ export default function DashavidhaPanel({ ayush, onOpenSource, onEdit }) {
         Dashavidha pariksha · captured at kiosk · tap to amend
       </h2>
 
-      <div className="dosha">
-        <span className="dosha-label mk-deva">Prakriti</span>
-        <span
-          className="dosha-bar"
-          role="img"
-          aria-label={`Vata ${ayush.prakriti.components.vata} percent, Pitta ${ayush.prakriti.components.pitta} percent, Kapha ${ayush.prakriti.components.kapha} percent`}
-        >
-          <span className="seg vata" style={{ width: `${ayush.prakriti.components.vata}%` }}>V</span>
-          <span className="seg pitta" style={{ width: `${ayush.prakriti.components.pitta}%` }}>P</span>
-          <span className="seg kapha" style={{ width: `${ayush.prakriti.components.kapha}%` }}>K</span>
-        </span>
-        <span className="dosha-value">{ayush.prakriti.value}</span>
-        <SourceChip source={ayush.prakriti.source} onOpen={onOpenSource} />
-      </div>
+      {ayush.prakriti?.components ? (
+        <div className="dosha">
+          <span className="dosha-label mk-deva">Prakriti</span>
+          <span
+            className="dosha-bar"
+            role="img"
+            aria-label={`Vata ${ayush.prakriti.components.vata} percent, Pitta ${ayush.prakriti.components.pitta} percent, Kapha ${ayush.prakriti.components.kapha} percent`}
+          >
+            <span className="seg vata" style={{ width: `${ayush.prakriti.components.vata}%` }}>V</span>
+            <span className="seg pitta" style={{ width: `${ayush.prakriti.components.pitta}%` }}>P</span>
+            <span className="seg kapha" style={{ width: `${ayush.prakriti.components.kapha}%` }}>K</span>
+          </span>
+          <span className="dosha-value">{ayush.prakriti.value}</span>
+          <SourceChip source={ayush.prakriti.source} onOpen={onOpenSource} />
+        </div>
+      ) : null}
 
       <dl className="dash-grid">
         {ayush.graded.map((g) => {

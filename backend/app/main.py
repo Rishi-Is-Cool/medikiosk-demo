@@ -18,12 +18,17 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Load .env file if present (development mode) — checks the project root
-# first so a single shared .env covers backend/ and ml_backend/ alike.
+# Load .env file if present (development mode). backend/.env first, found by
+# an absolute path so it's picked up no matter how this process was launched
+# (cd backend && uvicorn ..., or uvicorn --app-dir backend from elsewhere,
+# where python-dotenv's cwd/frame-walking auto-discovery can miss it and
+# silently leave DATABASE_URL etc. on their empty-sqlite/dev defaults).
+# Then the project root, for a single shared .env covering ai/ and
+# ml_backend/ too (overrides nothing backend/.env already set).
 try:
     from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
     load_dotenv(PROJECT_ROOT / ".env")
-    load_dotenv()  # also pick up backend/.env if present (overrides nothing already set)
 except ImportError:
     pass
 

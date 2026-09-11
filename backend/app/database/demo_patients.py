@@ -26,7 +26,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Run as a script, .env must be loaded BEFORE app.database.connection is
 # imported (below, via schemas): it reads DATABASE_URL once, at import, and

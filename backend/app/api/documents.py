@@ -81,7 +81,7 @@ async def upload_medical_document(
         "document_type": document_type,
         "document_date": db_doc.document_date,
         "ocr_text": ocr_text,
-        "extracted_diagnoses": extracted["diagnoses"],
+        "extracted_diagnoses": [d["value"] for d in extracted["diagnoses"]],
         "extracted_medications": extracted["medications"],
         "lab_results": extracted["lab_results"]
     }
