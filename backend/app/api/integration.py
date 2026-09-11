@@ -26,7 +26,7 @@ from app.services.ayush_snapshot import build_ayush_block
 from app.database.connection import get_db
 from app.database.schemas import (AdviceLibraryEntry, ClinicalAlert, ClinicalFact, ConsentRecord, Document,
     DocumentExtraction, DoctorProfile, Encounter, FactProvenance, KioskSession, LedgerEntry, Patient,
-    PhysicianSnapshot, TimelineEvent, Transcript, UploadSession)
+    PhysicianSnapshot, TimelineEvent, Transcript, UploadSession, User)
 from app.models.pydantic_models import (AutofillRequest, ConsentSubmission, DoctorQuestionRequest, LedgerRequest,
     LookupRequest, RegistrationRequest, StartIntakeRequestV2, SubmitIntakeAnswerRequest)
 from app.services.integration import (add_timeline_event, assign_doctor, canonical_gender, canonical_specialty,
@@ -866,14 +866,42 @@ def hospital_overview(admin: Dict[str, Any] = Depends(_admin), db: Session = Dep
     current_time = now()
     today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
 
+    # There's no explicit consultation-start/end event anywhere in this
+    # system — a doctor never tells the backend "I am now with patient X."
+    # The closest real signal is PhysicianSnapshot.generated_at: opening a
+    # patient's chart writes one. Treat the most recently opened chart among
+    # a doctor's own non-finalized encounters as "who they're with," but
+    # only within a short window — an hour-old open is someone they looked
+    # at once, not someone still in the room.
+    ROOM_ACTIVE_MINUTES = 20
+    room_cutoff = current_time - timedelta(minutes=ROOM_ACTIVE_MINUTES)
+    snapshots = (db.query(PhysicianSnapshot)
+                 .filter(PhysicianSnapshot.encounter_id.in_([e.encounter_id for e in all_encounters]),
+                         PhysicianSnapshot.generated_at >= room_cutoff)
+                 .order_by(PhysicianSnapshot.generated_at.desc()).all())
+    latest_snapshot_at: Dict[str, Any] = {}
+    for s in snapshots:
+        latest_snapshot_at.setdefault(s.encounter_id, s.generated_at)
+
     doctor_rows = []
     for profile in doctors:
         encs = by_doctor.get(profile.username, [])
         waiting = [e for e in encs if e.status != "finalized"]
         seen_today = sum(1 for e in encs if e.status == "finalized" and e.finalized_at and e.finalized_at >= today_start)
+
+        room = {"status": "free"}
+        current_encounter, current_since = None, None
+        for e in waiting:
+            seen_at = latest_snapshot_at.get(e.encounter_id)
+            if seen_at and (current_since is None or seen_at > current_since):
+                current_encounter, current_since = e, seen_at
+        if current_encounter:
+            room = {"status": "with_patient", "encounter_id": current_encounter.encounter_id,
+                    "patient_name": current_encounter.patient.name, "since": current_since.isoformat() + "Z"}
+
         doctor_rows.append({
             "username": profile.username, "name": profile.name, "practitioner_type": profile.practitioner_type,
-            "department": profile.department, "in_queue": len(waiting), "seen_today": seen_today,
+            "department": profile.department, "in_queue": len(waiting), "seen_today": seen_today, "room": room,
             "patients": [{"encounter_id": e.encounter_id, "name": e.patient.name, "age_years": e.patient.age,
                           "sex": e.patient.gender.lower(), "complaint": e.chief_complaint, "status": e.status,
                           "priority": e.priority in {"urgent", "priority"},
@@ -905,6 +933,24 @@ def hospital_overview(admin: Dict[str, Any] = Depends(_admin), db: Session = Dep
         "doctors": doctor_rows,
         "alerts": alert_rows,
     }
+
+
+@doctor_router.get("/admin/overview/trend")
+def hospital_trend(admin: Dict[str, Any] = Depends(_admin), db: Session = Depends(get_db)):
+    """Patients seen (finalized), hospital-wide, per day for the last 7 days
+    — the one thing /admin/overview can't answer since it only looks at
+    right now, not history."""
+    current_time = now()
+    today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    days = []
+    for i in range(6, -1, -1):
+        day_start = today_start - timedelta(days=i)
+        day_end = day_start + timedelta(days=1)
+        seen = (db.query(Encounter)
+                .filter(Encounter.status == "finalized", Encounter.finalized_at >= day_start, Encounter.finalized_at < day_end)
+                .count())
+        days.append({"date": day_start.strftime("%Y-%m-%d"), "label": day_start.strftime("%a"), "seen": seen})
+    return {"days": days}
 
 
 @doctor_router.get("/encounters/{encounter_id}/snapshot")
@@ -997,7 +1043,9 @@ def get_doctor_profile(clinician: Dict[str, Any] = Depends(_doctor), db: Session
         # doctor, not one. The console branches on role to show the
         # hospital-overview screen instead of a doctor's own clinic.
         if clinician.get("role") == "admin":
-            return {"role": "admin", "name": clinician.get("sub")}
+            user = db.query(User).filter(User.username == clinician.get("sub")).first()
+            return {"role": "admin", "username": clinician.get("sub"),
+                    "name": (user.display_name if user else None) or clinician.get("sub")}
         raise HTTPException(404, "No profile on file for this account")
     return {**_profile_payload(profile), "role": clinician.get("role", "doctor")}
 

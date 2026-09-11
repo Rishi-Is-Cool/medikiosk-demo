@@ -138,6 +138,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pill.part    { background: var(--warning-soft); border-color: var(--warning); color: var(--warning); }
 .pill.none    { color: var(--text-3); }
 .pill.ayu     { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+.pill.gen     { background: var(--secondary-soft); border-color: var(--secondary); color: var(--secondary); }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 
 .qbtn {
@@ -154,43 +155,133 @@ button, input, select, textarea { font: inherit; color: inherit; }
    HOSPITAL OVERVIEW (admin/reception)
    ====================================================================== */
 
-.overview { padding-bottom: var(--space-4); }
+.overview { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
 .ov-empty { padding: var(--space-3) var(--space-4); font-size: var(--fs-sm); color: var(--text-3); }
 
-.ov-alerts { display: flex; flex-direction: column; gap: 1px; background: var(--line); }
-.ov-alert {
-  display: flex; align-items: flex-start; gap: var(--space-3);
-  padding: var(--space-2) var(--space-4); background: var(--card);
-  border-left: 4px solid var(--line-strong);
-}
-.ov-alert.sev-critical, .ov-alert.sev-high { border-left-color: var(--emergency); background: var(--emergency-soft); }
-.ov-alert.sev-moderate { border-left-color: var(--warning); background: var(--warning-soft); }
-.ov-alert-sev {
-  flex: none; width: 64px; font-size: var(--fs-xs); font-weight: var(--weight-bold);
-  text-transform: uppercase; letter-spacing: .06em; padding-top: 2px;
-}
-.sev-critical .ov-alert-sev, .sev-high .ov-alert-sev { color: var(--emergency); }
-.sev-moderate .ov-alert-sev { color: var(--warning); }
-.ov-alert-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.ov-alert-headline { font-weight: var(--weight-medium); }
-.ov-alert-detail { font-size: var(--fs-sm); color: var(--text-2); margin-top: 2px; }
-.ov-alert-who { flex: none; font-size: var(--fs-xs); color: var(--text-3); text-align: right; white-space: nowrap; }
+/* .stats defaults to 3 even columns (Queue.jsx) — this screen has a 4th
+   (Open alerts), so it needs its own column count or the extra stat wraps
+   into a mostly-empty row. */
+.ov-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stat-alert { background: var(--emergency-soft); }
+.stat-alert .n { color: var(--emergency-ink); }
+.stat-alert .v { color: var(--emergency); }
 
-.ov-doctor { border-bottom: 1px solid var(--line); }
-.ov-doctor-head {
-  display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-2) var(--space-4); background: var(--surface-sunken);
+.ov-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.ov-group .qsec { margin: 0; border-radius: var(--radius) var(--radius) 0 0; }
+.ov-group-count { text-transform: none; letter-spacing: 0; font-weight: var(--weight-normal); color: var(--text-3); }
+
+.ov-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-3); }
+
+.ov-card {
+  display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--line-strong);
+  border-radius: var(--radius); overflow: hidden;
 }
+.ov-card.ayu { border-left-color: var(--primary); }
+.ov-card.gen { border-left-color: var(--secondary); }
+.ov-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); background: var(--surface-sunken);
+}
+.ov-card-sub { padding: 0 var(--space-3) var(--space-2); font-size: var(--fs-xs); color: var(--text-3); border-bottom: 1px solid var(--line); }
+.ov-doctor-id { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
 .ov-doctor-name { font-weight: var(--weight-bold); }
-.ov-doctor-counts { margin-left: auto; font-size: var(--fs-xs); color: var(--text-3); }
+.ov-doctor-username { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-3); }
+.ov-doctor-counts { font-size: var(--fs-xs); color: var(--text-3); }
+
+.room-status {
+  flex: none; display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--fs-xs); font-weight: var(--weight-medium); white-space: nowrap;
+}
+.room-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.room-status.free { color: var(--success); }
+.room-status.busy { color: var(--secondary); }
+
+.ov-card-body { max-height: 280px; overflow-y: auto; }
 .ov-row {
-  display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-2) var(--space-3);
   border-top: 1px solid var(--line); font-size: var(--fs-sm);
 }
 .ov-row.p { background: var(--emergency-soft); }
-.ov-who { display: flex; flex-direction: column; min-width: 160px; }
-.ov-complaint { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.ov-row.current { background: var(--secondary-soft); }
+.ov-row .ov-who { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.ov-row .qn { font-weight: var(--weight-medium); }
+.ov-row .qm { font-size: var(--fs-xs); color: var(--text-3); }
+.ov-row .wait { text-align: left; font-size: var(--fs-xs); }
+.ov-complaint { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Compact red-flag lines for the Home dashboard (the full bordered-card
+   version, .ov-alert, is used where alerts are the main content, e.g. a
+   dedicated alerts view) */
+.ov-alerts-compact { display: flex; flex-direction: column; }
+.ov-alert-line {
+  display: flex; align-items: baseline; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong); font-size: var(--fs-sm);
+}
+.ov-alert-line.sev-critical, .ov-alert-line.sev-high { border-left-color: var(--emergency); background: var(--emergency-soft); }
+.ov-alert-line.sev-moderate { border-left-color: var(--warning); background: var(--warning-soft); }
+.ov-alert-sev { flex: none; width: 64px; font-size: var(--fs-xs); font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; }
+.sev-critical .ov-alert-sev, .sev-high .ov-alert-sev { color: var(--emergency); }
+.sev-moderate .ov-alert-sev { color: var(--warning); }
+.ov-alert-headline { flex: 1; min-width: 0; font-weight: var(--weight-medium); }
+.ov-alert-who { flex: none; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+
+/* Dashboard charts — hand-rolled, no charting library for two data shapes
+   this simple (see the comment at the top of AdminHome.jsx). */
+.dash-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-3); }
+.dash-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.dash-card .qsec { border-radius: var(--radius) var(--radius) 0 0; }
+
+.bars { display: flex; align-items: flex-end; gap: var(--space-2); height: 160px; padding: var(--space-3); }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; }
+.bar-v { font-size: var(--fs-xs); color: var(--text-3); }
+.bar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.bar-fill { width: 100%; min-height: 2px; background: var(--primary); border-radius: 3px 3px 0 0; transition: height var(--dur-base) var(--ease); }
+.bar-label { font-size: var(--fs-xs); color: var(--text-3); }
+
+.split-chart { padding: var(--space-3); }
+.split-track { display: flex; height: 20px; border-radius: var(--radius); overflow: hidden; background: var(--surface-sunken); }
+.split-seg { transition: width var(--dur-base) var(--ease); }
+.split-seg.ayu { background: var(--primary); }
+.split-seg.gen { background: var(--secondary); }
+.split-legend { display: flex; flex-direction: column; gap: 6px; margin-top: var(--space-2); font-size: var(--fs-sm); }
+.split-legend-item { display: flex; align-items: center; gap: 6px; }
+.split-dot { width: 10px; height: 10px; border-radius: 3px; }
+.split-dot.ayu { background: var(--primary); }
+.split-dot.gen { background: var(--secondary); }
+
+/* Waiting Room + Patients tables share the same grid table pattern */
+.wr-table, .pat-table { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.wr-head, .wr-row {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) minmax(0, 1fr) 150px 90px;
+  gap: var(--space-3); align-items: center; padding: var(--space-2) var(--space-3);
+}
+.wr-head { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); background: var(--surface-sunken); }
+.wr-row { border-top: 1px solid var(--line); background: var(--card); font-size: var(--fs-sm); }
+.wr-row.p { background: var(--emergency-soft); }
+
+.pat-search { display: flex; align-items: center; gap: var(--space-3); }
+.pat-search-input {
+  flex: 1; max-width: 420px; min-height: var(--target-min);
+  padding: var(--space-2) var(--space-3); font-size: var(--fs-sm);
+  border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--card);
+}
+.pat-search-count { font-size: var(--fs-xs); color: var(--text-3); }
+.pat-head, .pat-row { grid-template-columns: minmax(0, 1.4fr) minmax(0, .9fr) minmax(0, .8fr) minmax(0, 1.1fr) minmax(0, .9fr) minmax(0, .9fr); }
+.pat-pager { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
+.pat-pager-label { font-size: var(--fs-xs); color: var(--text-3); }
+
+.settings-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start;
+}
+.settings-row { display: flex; align-items: center; gap: var(--space-3); width: 100%; }
+.settings-label { flex: 1; color: var(--text-3); font-size: var(--fs-sm); }
+.settings-options { display: flex; flex-direction: column; gap: var(--space-2); }
+.settings-option { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-sm); }
 
 /* ======================================================================
    ENCOUNTER

@@ -155,11 +155,21 @@ export async function fetchQueue() {
   return get("/api/queue");
 }
 
-/* Admin/reception only — a doctor's own token gets a 403 from this route.
-   No mock fixture: an admin profile only exists against the real backend,
-   so this is never reached in mock mode. */
+/* Admin/reception only — a doctor's own token gets a 403 from these routes.
+   No mock fixtures: an admin profile only exists against the real backend,
+   so none of these are ever reached in mock mode. */
 export async function fetchHospitalOverview() {
   return get("/api/admin/overview");
+}
+
+export async function fetchHospitalTrend() {
+  return get("/api/admin/overview/trend");
+}
+
+export async function fetchAdminPatients({ q = "", skip = 0, limit = 50 } = {}) {
+  const params = new URLSearchParams({ skip, limit });
+  if (q.trim()) params.set("q", q.trim());
+  return get(`/api/admin/patients?${params.toString()}`);
 }
 
 /* viewerShowsAyush mirrors the doctor's display preference. The real endpoint

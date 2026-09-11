@@ -105,15 +105,21 @@ def get_system_stats(db: Session = Depends(get_db), _: None = Depends(_require_a
 def list_all_patients(
     skip: int = 0,
     limit: int = 50,
+    q: str | None = None,
     db: Session = Depends(get_db),
     _: None = Depends(_require_admin),
 ):
     """
-    Returns paginated list of all registered patients.
-    Used by the OPD token queue and physician dashboard.
+    Returns paginated list of all registered patients, optionally filtered
+    by name or ABHA number (q). Used by the hospital-wide patient directory,
+    OPD token queue, and physician dashboard.
     """
-    patients = db.query(Patient).order_by(Patient.created_at.desc()).offset(skip).limit(limit).all()
-    total = db.query(func.count(Patient.id)).scalar()
+    query = db.query(Patient)
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        query = query.filter((Patient.name.ilike(like)) | (Patient.abha_id.ilike(like)))
+    total = query.with_entities(func.count(Patient.id)).scalar()
+    patients = query.order_by(Patient.created_at.desc()).offset(skip).limit(limit).all()
 
     return {
         "total": total,

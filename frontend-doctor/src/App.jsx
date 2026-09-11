@@ -16,7 +16,11 @@ import Encounter from "./screens/Encounter.jsx";
 import Patients from "./screens/Patients.jsx";
 import PatientDetail from "./screens/PatientDetail.jsx";
 import Settings from "./screens/Settings.jsx";
-import HospitalOverview from "./screens/HospitalOverview.jsx";
+import AdminHome from "./screens/admin/AdminHome.jsx";
+import AdminRooms from "./screens/admin/AdminRooms.jsx";
+import AdminWaitingRoom from "./screens/admin/AdminWaitingRoom.jsx";
+import AdminPatients from "./screens/admin/AdminPatients.jsx";
+import AdminSettings from "./screens/admin/AdminSettings.jsx";
 import Login from "./screens/Login.jsx";
 import Signup from "./screens/Signup.jsx";
 import SyncStatus from "./components/SyncStatus.jsx";
@@ -102,22 +106,7 @@ export default function App() {
      and every doctor-only screen would be far more fragile than just
      branching once, here. */
   if (doctorProfile?.role === "admin") {
-    return (
-      <div className="app">
-        <header className="appbar">
-          <span className="applogo">MediKiosk</span>
-          <span className="apptitle">Hospital Overview</span>
-          <nav className="appnav" aria-label="Sections">
-            <button type="button" className="navbtn" onClick={logout}>
-              Log out
-            </button>
-          </nav>
-        </header>
-        <main className="appmain">
-          <HospitalOverview />
-        </main>
-      </div>
-    );
+    return <AdminApp />;
   }
 
   /* One definition of "back", so every screen behaves the same way. */
@@ -247,6 +236,38 @@ export default function App() {
             onBack={() => setEncounterId(null)}
           />
         ) : null}
+      </main>
+    </div>
+  );
+}
+
+const ADMIN_TABS = [
+  { key: "home", label: "Home", Screen: AdminHome },
+  { key: "rooms", label: "Rooms", Screen: AdminRooms },
+  { key: "waiting", label: "Waiting Room", Screen: AdminWaitingRoom },
+  { key: "patients", label: "Patients", Screen: AdminPatients },
+  { key: "settings", label: "Settings", Screen: AdminSettings },
+];
+
+function AdminApp() {
+  const [tab, setTab] = useState("home");
+  const { Screen } = ADMIN_TABS.find((t) => t.key === tab) ?? ADMIN_TABS[0];
+
+  return (
+    <div className="app">
+      <header className="appbar">
+        <span className="applogo">MediKiosk</span>
+        <span className="apptitle">Hospital Overview</span>
+        <nav className="appnav" aria-label="Sections">
+          {ADMIN_TABS.map((t) => (
+            <button key={t.key} type="button" className={`navbtn ${tab === t.key ? "on" : ""}`} onClick={() => setTab(t.key)}>
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+      <main className="appmain">
+        <Screen />
       </main>
     </div>
   );
