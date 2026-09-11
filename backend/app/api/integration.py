@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
@@ -40,7 +41,23 @@ logger = logging.getLogger(__name__)
 kiosk_router = APIRouter(tags=["Kiosk Integration"])
 doctor_router = APIRouter(prefix="/api", tags=["Doctor Integration"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
-UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "./data/uploads"))
+# Absolute, anchored to this file's location — not the process's cwd, which
+# is the project root (not backend/) when uvicorn is launched with
+# --app-dir from outside backend/. A relative default here silently wrote
+# uploads under the wrong directory and made every later existence check
+# on that same relative path fail depending on how the server was started.
+BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR") or (BACKEND_ROOT / "data" / "uploads"))
+
+
+def _resolve_upload_path(path: Optional[str]) -> Optional[Path]:
+    """Documents saved before UPLOAD_ROOT was made absolute may still have a
+    relative file_path in the database — resolve it against backend/ instead
+    of trusting the process's cwd."""
+    if not path:
+        return None
+    p = Path(path)
+    return p if p.is_absolute() else (BACKEND_ROOT / p)
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 # Every still-image format the Gemini vision pipeline accepts natively, not
 # just the two a desktop scanner produces — a phone camera hands back HEIC on
@@ -508,8 +525,9 @@ def _upload_payload(db: Session, upload: UploadSession) -> Dict[str, Any]:
     documents = []
     for d in docs:
         extraction = extractions.get(d.document_id)
+        resolved = _resolve_upload_path(d.file_path)
         documents.append({"document_id": d.document_id, "file_name": d.file_name,
-                          "size_bytes": os.path.getsize(d.file_path) if os.path.exists(d.file_path) else 0,
+                          "size_bytes": os.path.getsize(resolved) if resolved and resolved.exists() else 0,
                           "status": _EXTRACTION_TO_STATUS.get(extraction.status if extraction else "", "received"),
                           "doc_type": d.document_type, "received_at": d.created_at.isoformat() + "Z"})
     if upload.expires_at and upload.expires_at < now():
@@ -702,6 +720,19 @@ def _require_own_encounter(encounter: Encounter, clinician: Dict[str, Any]) -> N
     patient's chart, and vice versa. Admins can see across specialties."""
     if clinician.get("role") != "admin" and encounter.assigned_doctor_username != clinician.get("sub"):
         raise HTTPException(403, "This encounter is assigned to a different doctor")
+
+
+def _require_own_document(db: Session, document: Document, clinician: Dict[str, Any]) -> None:
+    """A document has no assigned_doctor_username of its own (it's scoped to
+    the patient, not one visit) — access follows the same rule as an
+    encounter: the doctor must have at least one encounter with this patient."""
+    if clinician.get("role") == "admin":
+        return
+    owns = (db.query(Encounter)
+            .filter(Encounter.patient_id == document.patient_id, Encounter.assigned_doctor_username == clinician.get("sub"))
+            .first())
+    if not owns:
+        raise HTTPException(403, "This document belongs to a different doctor's patient")
 
 
 def _lab_flag(details: Dict[str, Any]) -> Any:
@@ -910,9 +941,10 @@ def update_doctor_profile(update: Dict[str, Any], clinician: Dict[str, Any] = De
 
 
 @doctor_router.get("/documents/{document_id}")
-def doctor_document(document_id: str, _: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+def doctor_document(document_id: str, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
     doc = db.query(Document).filter(Document.document_id == document_id).first()
     if not doc: raise HTTPException(404, "Document not found")
+    _require_own_document(db, doc, clinician)
     extraction = db.query(DocumentExtraction).filter(DocumentExtraction.document_id == document_id).first()
     # Structured lines (each tagged with the field it was extracted for, if
     # any) let the Evidence panel box the exact line a fact came from.
@@ -920,7 +952,26 @@ def doctor_document(document_id: str, _: Dict[str, Any] = Depends(_doctor), db: 
     lines = (extraction.payload or {}).get("lines") if extraction else None
     if not lines:
         lines = [{"text": line} for line in (doc.ocr_text or "").splitlines()]
-    return {"document_id": doc.document_id, "dated": doc.document_date, "lines": lines}
+    resolved = _resolve_upload_path(doc.file_path)
+    return {"document_id": doc.document_id, "dated": doc.document_date, "has_file": bool(resolved and resolved.exists()), "lines": lines}
+
+
+@doctor_router.get("/documents/{document_id}/file")
+def doctor_document_file(document_id: str, clinician: Dict[str, Any] = Depends(_doctor), db: Session = Depends(get_db)):
+    """The original scanned image/PDF, not the OCR transcription — lets a
+    doctor check the source itself when the extracted text looks off."""
+    doc = db.query(Document).filter(Document.document_id == document_id).first()
+    if not doc: raise HTTPException(404, "Document not found")
+    _require_own_document(db, doc, clinician)
+    resolved = _resolve_upload_path(doc.file_path)
+    if not resolved or not resolved.exists():
+        raise HTTPException(404, "The original file is no longer available")
+    # mimetypes.guess_type() (FileResponse's own fallback) doesn't know
+    # image/webp or HEIC/HEIF on every platform — the same extension map the
+    # upload validator uses keeps the browser from getting back an
+    # application/octet-stream it won't render inline.
+    media_type = _EXTENSION_TYPES.get(resolved.suffix.lower())
+    return FileResponse(resolved, filename=doc.file_name, media_type=media_type)
 
 
 @doctor_router.post("/encounters/{encounter_id}/qa")

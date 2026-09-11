@@ -181,6 +181,18 @@ export async function fetchDocument(documentId) {
   return get(`/api/documents/${documentId}`);
 }
 
+/* The original scanned file, not its OCR transcription — fetched as a blob
+   (not a plain <img src>) so the request carries the doctor's auth header;
+   the caller must revoke the returned object URL when done with it.
+   No real files exist in mock mode, so this is a no-op there. */
+export async function fetchDocumentFile(documentId) {
+  if (USE_MOCKS) return null;
+  const res = await guarded(await fetch(`/api/documents/${documentId}/file`, { headers: await authHeaders() }));
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  return { url: URL.createObjectURL(blob), contentType: blob.type };
+}
+
 export async function askQuestion(encounterId, question) {
   if (USE_MOCKS) {
     await sleep(600);

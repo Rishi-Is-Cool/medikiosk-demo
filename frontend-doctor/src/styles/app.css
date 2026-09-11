@@ -366,6 +366,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .ev-question { font-size: var(--fs-sm); font-weight: var(--weight-bold); margin-bottom: var(--space-2); }
 .ev-sources { margin-top: var(--space-2); font-size: var(--fs-xs); color: var(--text-3); display: flex; align-items: center; gap: 6px; }
 
+.ev-original-toggle { margin-bottom: var(--space-3); padding-left: 0; padding-right: 0; }
+.ev-original { margin-bottom: var(--space-3); }
+.ev-original-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
+.ev-original-img, .ev-original-pdf {
+  display: block; width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+.ev-original-img { max-height: 480px; object-fit: contain; }
+.ev-original-pdf { height: 480px; }
+
 .scan {
   margin: 0; padding: var(--space-3);
   background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius);
