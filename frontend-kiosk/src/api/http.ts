@@ -13,7 +13,10 @@ export async function request<T>(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const url = path.startsWith("http://") || path.startsWith("https://")
+      ? path
+      : `${API_BASE_URL}${path}`;
+    const response = await fetch(url, {
       ...rest,
       signal: controller.signal,
       headers: {

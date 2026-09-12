@@ -16,6 +16,9 @@ function lanHost(): string[] {
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: lanHost(),
+  env: {
+    NEXT_PUBLIC_KIOSK_BACKEND_ORIGIN: BACKEND_ORIGIN,
+  },
 
   // The kiosk and the patient's phone both reach the API through this app's
   // own origin (/backend/*). The phone only knows the kiosk's address from

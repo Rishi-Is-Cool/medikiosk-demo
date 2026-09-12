@@ -148,6 +148,74 @@ _LEGACY_COMPLAINT_IDS = {
 }
 
 
+# ─── Negation & matching helpers ──────────────────────────────────────────────
+
+_ENGLISH_NEGATORS = {
+    "no", "not", "dont", "don't", "doesnt", "doesn't", "didnt", "didn't",
+    "havent", "haven't", "hasnt", "hasn't", "hadnt", "hadn't",
+    "cant", "can't", "cannot", "wont", "won't", "wouldnt", "wouldn't",
+    "never", "without", "neither", "nor", "denies", "denied", "nil", "zero"
+}
+
+_INDIC_NEGATORS = {
+    "नहीं", "नही", "ना", "नाही", "न", "नाहीत",
+    "nahi", "nhi", "nahin", "naahi", "nay", "nako"
+}
+
+_ALL_NEGATORS = _ENGLISH_NEGATORS | _INDIC_NEGATORS
+_NEGATORS = tuple(_ALL_NEGATORS)
+
+_CONTRAST_CONJUNCTIONS = {
+    "but", "however", "except", "yet", "although", "though",
+    "lekin", "par", "parantu", "kintu", "मगर", "लेकिन", "परंतु", "किंतु", "पण"
+}
+
+_QUALIFIER_STOPWORDS = {
+    "difficulty", "problem", "problems", "issue", "issues", "trouble", "troubles",
+    "discomfort", "severe", "mild", "moderate", "takleef", "tras", "तकलीफ", "त्रास"
+}
+
+
+def _is_negated(text: str, start: int, end: int) -> bool:
+    """Clause-aware check if a token matched at [start:end] in text is negated."""
+    prefix = text[:start]
+    last_boundary = max(
+        prefix.rfind("."), prefix.rfind(";"), prefix.rfind("!"), prefix.rfind("?"),
+        prefix.rfind("\n")
+    )
+    clause_prefix = prefix[last_boundary + 1:] if last_boundary != -1 else prefix
+    contrast_match = re.search(r'\b(?:' + '|'.join(_CONTRAST_CONJUNCTIONS) + r')\b', clause_prefix, re.IGNORECASE)
+    if contrast_match:
+        clause_prefix = clause_prefix[contrast_match.end():]
+
+    pre_tokens = [w.strip(".,!?\"'()[]{}—–-") for w in clause_prefix.split() if w.strip(".,!?\"'()[]{}—–-")]
+    for token in pre_tokens[-8:]:
+        if token.lower() in _ALL_NEGATORS:
+            return True
+
+    suffix = text[end:]
+    first_boundary = len(suffix)
+    for char in [".", ";", "!", "?", "\n"]:
+        idx = suffix.find(char)
+        if idx != -1 and idx < first_boundary:
+            first_boundary = idx
+    clause_suffix = suffix[:first_boundary]
+    contrast_suffix_match = re.search(r'\b(?:' + '|'.join(_CONTRAST_CONJUNCTIONS) + r')\b', clause_suffix, re.IGNORECASE)
+    if contrast_suffix_match:
+        clause_suffix = clause_suffix[:contrast_suffix_match.start()]
+
+    post_tokens = [w.strip(".,!?\"'()[]{}—–-") for w in clause_suffix.split() if w.strip(".,!?\"'()[]{}—–-")]
+    for token in post_tokens[:4]:
+        if token.lower() in _ALL_NEGATORS:
+            return True
+
+    return False
+
+
+def _negated(text: str, start: int) -> bool:
+    return _is_negated(text, start, start + 4)
+
+
 def _latin_word_match(keyword: str, text: str) -> bool:
     if re.search(r"[a-z]", keyword):
         return re.search(r"(?<![a-z])" + re.escape(keyword), text) is not None
@@ -188,7 +256,25 @@ def complaint_label(cid: str, language: str = "en") -> str:
 
 def match_complaints(transcript: str) -> List[str]:
     text = (transcript or "").lower()
-    found = [c.id for c in COMPLAINTS if c.keywords and any(_latin_word_match(k.lower(), text) for k in c.keywords)]
+    found: List[str] = []
+    for c in COMPLAINTS:
+        if not c.keywords:
+            continue
+        has_positive = False
+        for k in c.keywords:
+            k_lower = k.lower()
+            if re.search(r"[a-z]", k_lower):
+                pat = re.compile(r"(?<![a-z])" + re.escape(k_lower) + r"(?![a-z])")
+            else:
+                pat = re.compile(re.escape(k_lower))
+            for m in pat.finditer(text):
+                if not _is_negated(text, m.start(), m.end()):
+                    has_positive = True
+                    break
+            if has_positive:
+                break
+        if has_positive:
+            found.append(c.id)
     return found
 
 
@@ -625,7 +711,7 @@ ALL_QUESTIONS: Dict[str, Question] = {
 
 # ─── Findings ─────────────────────────────────────────────────────────────────
 
-_NEGATORS = ("no", "not", "never", "without", "नहीं", "नही", "ना", "नाही", "न")
+# _NEGATORS defined earlier with negation helpers
 
 # Phrases in free-text / spoken answers that map onto findings. Deliberately
 # short and specific: a broad list turns every "no pain" into an alert.
@@ -647,9 +733,7 @@ _TEXT_FINDINGS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
 )
 
 
-def _negated(text: str, start: int) -> bool:
-    window = text[max(0, start - 24):start].split()[-3:]
-    return any(w.strip(".,!?") in _NEGATORS for w in window)
+# _negated defined earlier with negation helpers
 
 
 def text_findings(text: str) -> Set[str]:
@@ -807,21 +891,32 @@ def match_options(question: Question, ctx: Context, text: str) -> List[str]:
         value = _duration_from_text(text)
         return [value] if value else []
     lowered = text.lower()
-    # (score, -position, value): highest score wins, ties go to the option the
-    # patient saw first rather than whichever sorts last alphabetically.
     scores: List[Tuple[int, int, str]] = []
     for position, option in enumerate(question.resolved_options(ctx)):
         words: Set[str] = set()
         for label in option.label.values():
             for word in re.split(r"[\s,/()\-—–.]+", label.lower()):
-                if len(word) >= 3 and word not in _STOPWORDS:
+                if len(word) >= 3 and word not in _STOPWORDS and word not in _QUALIFIER_STOPWORDS:
                     words.add(word)
-        # Whole-word matching for Latin script ("ever" must not match "severe");
-        # substring for Devanagari, where inflection attaches to the stem.
-        score = sum(1 for w in words if _option_word_match(w, lowered))
+        score = 0
+        for w in words:
+            if re.search(r"[a-z]", w):
+                pat = re.compile(r"(?<![a-z])" + re.escape(w) + r"s?(?![a-z])")
+            else:
+                pat = re.compile(re.escape(w))
+            for m in pat.finditer(lowered):
+                if not _is_negated(lowered, m.start(), m.end()):
+                    score += 1
+                    break
         if score:
             scores.append((score, -position, option.value))
     if not scores:
+        resolved = question.resolved_options(ctx)
+        has_none_opt = any(o.value == "none" for o in resolved)
+        tokens = [w.strip(".,!?\"'()[]{}—–-") for w in lowered.split()]
+        has_negation_in_text = any(neg in _ALL_NEGATORS for neg in tokens)
+        if has_none_opt and has_negation_in_text:
+            return ["none"]
         return []
     scores.sort(reverse=True)
     if question.input_type in ("single_select", "scale"):

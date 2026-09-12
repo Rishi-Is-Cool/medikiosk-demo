@@ -14,6 +14,14 @@ export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== "false";
  *  rewrite (next.config.ts), so the patient's phone reaches it too. */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
+/** Origin of the FastAPI backend for direct client calls (bypassing Next.js 30s rewrite proxy limit) */
+export const KIOSK_BACKEND_ORIGIN = (
+  process.env.NEXT_PUBLIC_KIOSK_BACKEND_ORIGIN ??
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN ??
+  process.env.KIOSK_BACKEND_ORIGIN ??
+  "http://127.0.0.1:8000"
+).replace(/\/$/, "");
+
 /** Shows the "skip with sample answers" control on the question screen, so a
  *  live demo can jump straight to document upload. Never enable for patients. */
 export const DEMO_SKIP = process.env.NEXT_PUBLIC_DEMO_SKIP === "true";

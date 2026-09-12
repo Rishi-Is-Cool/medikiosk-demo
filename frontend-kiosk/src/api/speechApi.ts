@@ -3,7 +3,7 @@
    Whisper runs behind this boundary, on the backend. No model, no key and no
    prompt appears on the client (§19). */
 
-import { ENDPOINTS, MOCK_LATENCY, USE_MOCKS, mockDelay } from "./config";
+import { ENDPOINTS, KIOSK_BACKEND_ORIGIN, MOCK_LATENCY, USE_MOCKS, mockDelay } from "./config";
 import { request } from "./http";
 import { FORCE_SPEECH_FAILURE, mockTranscript } from "@/mocks/transcripts";
 import { ApiError, type LanguageCode, type TranscriptResult } from "./types";
@@ -56,12 +56,13 @@ export const speechApi = {
     form.append("language", payload.language);
     form.append("duration_ms", String(Math.round(payload.duration_ms)));
 
-    // Whisper on a CPU takes a few seconds for a sentence, longer for the
-    // very first recording while the model loads.
-    return request<TranscriptResult>(ENDPOINTS.speech.transcribe, {
+    // Direct call to FastAPI backend to bypass Next.js 30-second rewrite proxy timeout
+    // Whisper Medium on CPU can take 30-60+ seconds.
+    const directUrl = `${KIOSK_BACKEND_ORIGIN}${ENDPOINTS.speech.transcribe}`;
+    return request<TranscriptResult>(directUrl, {
       method: "POST",
       body: form,
-      timeoutMs: 60000,
+      timeoutMs: 90000,
     });
   },
 
