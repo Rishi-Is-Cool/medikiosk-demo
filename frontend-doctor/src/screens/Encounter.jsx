@@ -30,6 +30,13 @@ import MedicinePanel from "../components/MedicinePanel.jsx";
 import PatientRail from "../components/PatientRail.jsx";
 import PrintSheet from "../components/PrintSheet.jsx";
 
+/* Interview answers arrive grouped by the adaptive engine's own sections. */
+const SECTION_TITLES = {
+  problem: "Presenting problem",
+  history: "Medical history",
+  ayush: "Dashavidha Pariksha",
+};
+
 export default function Encounter({ encounterId, showAyush, practitionerType, patients = [], onSelectPatient, onBack }) {
   const [snap, setSnap] = useState(null);
   const [error, setError] = useState("");
@@ -238,6 +245,19 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
                     <SourceChip source={s.chief_complaint.text.source} onOpen={openSource} />
                   </p>
                   {snap.ayush ? <p className="ccsub">Vikriti — {snap.ayush.vikriti.value}</p> : null}
+                  {/* The patient's own words are supporting evidence now, not the
+                      complaint itself — collapsed so the summary reads first. */}
+                  {s.chief_complaint.patient_words ? (
+                    <details className="patient-words">
+                      <summary>Patient's own words</summary>
+                      <p>
+                        “{s.chief_complaint.patient_words}”
+                        {s.chief_complaint.patient_words_source ? (
+                          <SourceChip source={s.chief_complaint.patient_words_source} onOpen={openSource} />
+                        ) : null}
+                      </p>
+                    </details>
+                  ) : null}
                 </div>
                 <div className="subcard">
                   <span className="subcard-label">Active conditions</span>
@@ -261,6 +281,49 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
                 </div>
               </div>
             </div>
+
+            {/* The ten-second read: a generated HPI plus what the patient
+                confirmed and what they explicitly denied. Derived from the
+                stored interview answers, so it is present whether or not the
+                AI enrichment task ever ran. */}
+            {s.clinical_summary ? (
+              <div className="clinical-card summary-card">
+                <h2 className="clinical-card-title">{s.clinical_summary.label}</h2>
+                {s.clinical_summary.hpi ? <p className="summary-hpi">{s.clinical_summary.hpi}</p> : null}
+                <div className="summary-findings">
+                  <div>
+                    <span className="subcard-label">Reports</span>
+                    {s.clinical_summary.positives.length ? (
+                      <ul className="finding-list positive">
+                        {s.clinical_summary.positives.map((p) => (
+                          <li key={p.key}>
+                            {p.label}
+                            <SourceChip source={p.source} onOpen={openSource} />
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="item muted col-empty">None recorded</p>
+                    )}
+                  </div>
+                  <div>
+                    <span className="subcard-label">Denies</span>
+                    {s.clinical_summary.negatives.length ? (
+                      <ul className="finding-list negative">
+                        {s.clinical_summary.negatives.map((n) => (
+                          <li key={n.key}>
+                            {n.label}
+                            <SourceChip source={n.source} onOpen={openSource} />
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="item muted col-empty">Nothing explicitly denied</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="allergy-banner">
               <b>Allergies:</b>
@@ -300,14 +363,28 @@ export default function Encounter({ encounterId, showAyush, practitionerType, pa
             {!mgmtCollapsed ? (
               <div className="hpi-block">
                 <h3>{s.hpi.label} · {s.hpi.framework}</h3>
-                <dl className="socr">
-                  {s.hpi.items.map((it) => (
-                    <div className="sc" key={it.key}>
-                      <dt>{it.label}</dt>
-                      <dd>{it.value}</dd>
-                    </div>
-                  ))}
-                </dl>
+                {s.hpi.items.length ? (
+                  <dl className="socr">
+                    {s.hpi.items.map((it, i) => (
+                      <div className={`sc sc-${it.section || "history"}`} key={it.key}>
+                        {/* The backend orders these problem → history → constitution;
+                            label the change so the presenting illness reads as a group. */}
+                        {it.section && it.section !== s.hpi.items[i - 1]?.section ? (
+                          <span className="sc-group">{SECTION_TITLES[it.section] || it.section}</span>
+                        ) : null}
+                        <dt>{it.label}</dt>
+                        <dd>
+                          {it.value}
+                          <SourceChip source={it.source} onOpen={openSource} />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="item muted col-empty">
+                    No follow-up questions were answered in this visit.
+                  </p>
+                )}
               </div>
             ) : null}
           </section>

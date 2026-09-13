@@ -24,6 +24,7 @@ from app.ai import adaptive_engine as engine
 from app.ai.vision_pipeline import extract_and_normalize, extract_identity
 from app.ai.clinical_extraction import extract_from_transcript
 from app.services.ayush_snapshot import build_ayush_block
+from app.services.clinical_summary import build_clinical_summary, summarise_free_text
 from app.database.connection import get_db
 from app.database.schemas import (AdviceLibraryEntry, ClinicalAlert, ClinicalFact, ConsentRecord, Document,
     DocumentExtraction, DoctorProfile, Encounter, FactProvenance, KioskSession, LedgerEntry, Patient,
@@ -287,8 +288,13 @@ def start_intake(request: StartIntakeRequestV2, background: BackgroundTasks, db:
     except NoDoctorAvailable as exc:
         raise HTTPException(503, str(exc)) from exc
 
+    # The complaint the doctor reads is the classified labels — not the labels
+    # with the patient's whole spoken narration appended, which is what used to
+    # be stored and which turned the chief complaint into a transcript. The
+    # narration is not lost: it stays on the IntakeAnswer row below (and on its
+    # ClinicalFact), and the snapshot surfaces it as the patient's own words.
     labels = ", ".join(engine.complaint_label(c) for c in complaints if c != "other")
-    summary = f"{labels} — {text}" if labels and text else (labels or text or "Not recorded")
+    summary = labels or summarise_free_text(text) or "Not recorded"
     encounter = Encounter(encounter_id=ref("enc"), patient_id=session.patient_id, intake_framework=request.history_mode,
                           chief_complaint=summary, language=request.language, assigned_doctor_username=doctor_username)
     db.add(encounter)
@@ -296,7 +302,8 @@ def start_intake(request: StartIntakeRequestV2, background: BackgroundTasks, db:
     session.encounter_id = encounter.encounter_id
     issue_queue_token(db, encounter)  # token order = arrival order at the kiosk
     persist_answer(db, encounter, "chief_complaints", "patient_spoken" if text else "patient_touch", complaints, text,
-                   request.language, readable=summary, question_label="Chief complaint")
+                   request.language, readable=f"{summary} — “{text}”" if text else summary,
+                   question_label="Chief complaint")
     add_timeline_event(db, encounter.patient_id, encounter.encounter_id, "consultation", f"New encounter: {summary}",
                        "encounter", encounter.encounter_id)
     # A spoken complaint can itself carry a red flag ("chest pain going to my left arm").
@@ -810,9 +817,21 @@ def _snapshot(db: Session, encounter: Encounter, background_tasks: Optional[Back
     answer_facts = sorted((f for f in by_type("intake_answer") if f.encounter_id == encounter.encounter_id
                            and (f.details or {}).get("question_id") not in {"chief_complaints", "q1_chief_complaint"}),
                           key=lambda f: f.recorded_at or now())
+    # Ordered the way a chart is read — the presenting problem first, then
+    # history, then constitution. In answer order the ten Dashavidha rows sat
+    # between the doctor and the handful that describe the actual illness.
+    _SECTION_RANK = {"problem": 0, "history": 1, "ayush": 2}
+
+    def _answer_section(fact: ClinicalFact) -> int:
+        question = engine.ALL_QUESTIONS.get((fact.details or {}).get("question_id") or "")
+        return _SECTION_RANK.get(question.section if question else "history", 3)
+
     hpi_items = [{"key": f.details.get("question_id", f.fact_id),
                   "label": f.details.get("question_label") or f.details.get("question_id", "Intake response"),
-                  "value": f.raw_value, "source": src(f), "status": f.status} for f in answer_facts]
+                  "value": f.raw_value, "source": src(f), "status": f.status,
+                  "section": (engine.ALL_QUESTIONS.get((f.details or {}).get("question_id") or "").section
+                              if engine.ALL_QUESTIONS.get((f.details or {}).get("question_id") or "") else "history")}
+                 for f in sorted(answer_facts, key=_answer_section)]
     investigation_items = [{"fact_id": f.fact_id, "test": f.raw_value, "value": (f.details or {}).get("value"),
                              "unit": (f.details or {}).get("unit"), "reference_range": (f.details or {}).get("reference_range"),
                              "flag": _lab_flag(f.details or {}), "dated": f.recorded_at.strftime("%Y-%m-%d") if f.recorded_at else None,
@@ -822,13 +841,29 @@ def _snapshot(db: Session, encounter: Encounter, background_tasks: Optional[Back
                            .order_by(Encounter.finalized_at.desc()).first())
     ayush_block = build_ayush_block(encounter)
     ayush_status = "present" if ayush_block else ("not_captured" if encounter.intake_framework != "ayush" else "in_progress")
+    # Derived, never stored: the concise clinical read of this encounter, built
+    # from the IntakeAnswer rows and the facts above. No LLM call, so what the
+    # doctor sees does not depend on the enrichment background task having run.
+    summary = build_clinical_summary(encounter, [f for f in facts if f.fact_type in {"condition", "medication", "allergy"}])
+    condition_items = [{"fact_id": i["key"], "value": i["value"], "normalized": None,
+                        "source": i["source"], "status": "patient_reported"} for i in summary["history"]]
+    medication_items = [{"fact_id": i["key"], "value": i["value"], "source": i["source"],
+                         "status": "patient_reported"} for i in summary["medications"]]
+    allergy_items = [{"fact_id": i["key"], "value": i["value"], "reaction": i.get("detail") or None,
+                      "source": i["source"], "status": "patient_reported", "alert_ids": []}
+                     for i in summary["allergies"]]
     snap = {"encounter_id": encounter.encounter_id, "generated_at": now().isoformat() + "Z", "status": encounter.status,
             "intake_framework": encounter.intake_framework, "patient": {"patient_id": patient.patient_id, "name": patient.name, "age_years": patient.age, "sex": patient.gender.lower(), "abha_id": patient.abha_id, "preferred_language": patient.language, "department": "OPD"},
             "alerts": [{"alert_id": a.alert_id, "severity": a.severity, "rule": a.rule, "headline": a.headline, "detail": a.detail, "conflicting_sources": a.sources} for a in alerts],
-            "sections": {"chief_complaint": {"label": "Chief complaint", "text": {"value": encounter.chief_complaint or "Not recorded", "duration": _duration_text(answer_facts), "source": contract_source("encounter", encounter.encounter_id), "status": "patient_reported"}},
+            "sections": {"chief_complaint": {"label": "Chief complaint", "text": {"value": summary["chief_complaint"], "duration": _duration_text(answer_facts), "source": contract_source("encounter", encounter.encounter_id), "status": "patient_reported"},
+                                             # The patient's own words stay available as supporting evidence —
+                                             # they are no longer what the doctor reads as the complaint itself.
+                                             "patient_words": summary["patient_words"], "patient_words_source": summary["patient_words_source"]},
+                         "clinical_summary": {"label": "Clinical summary", "basis": summary["basis"], "hpi": summary["hpi"],
+                                              "positives": summary["positives"], "negatives": summary["negatives"]},
                          "hpi": {"label": "History of present illness", "framework": "SOCRATES", "items": hpi_items},
-                         "past_medical_surgical": {"label": "Past medical and surgical", "items": [{"fact_id": f.fact_id, "value": f.normalized_value or f.raw_value, "normalized": None, "source": src(f), "status": f.status} for f in by_type("condition")]},
-                         "drug_and_allergy": {"label": "Drug and allergy", "medications": [{"fact_id": f.fact_id, "value": f.raw_value, "source": src(f), "status": f.status} for f in by_type("medication")], "allergies": [{"fact_id": f.fact_id, "value": f.raw_value, "reaction": f.details.get("reaction"), "source": src(f), "status": f.status, "alert_ids": []} for f in by_type("allergy")]},
+                         "past_medical_surgical": {"label": "Past medical and surgical", "items": condition_items},
+                         "drug_and_allergy": {"label": "Drug and allergy", "medications": medication_items, "allergies": allergy_items},
                          "family_history": {"label": "Family history", "collapsed_by_default": True, "count": 0, "items": []}, "personal_history": {"label": "Personal history", "collapsed_by_default": True, "count": 0, "items": []}, "review_of_systems": {"label": "Review of systems", "collapsed_by_default": True, "systems_reviewed": 0, "positive_count": 0, "items": []},
                          "prior_investigations": {"label": "Prior investigations", "items": investigation_items}},
             "trend": {"label": "Timeline", "dates": [e.event_date.strftime("%d %b") for e in events if e.event_date], "groups": [{"label": "Clinical events", "rows": [{"key": e.event_id, "label": e.event_type, "values": [e.summary], "flags": [None], "ref": "—", "source": {"type": e.source_type, "id": e.source_id}} for e in events]}]},

@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 L = Dict[str, str]  # {"en": ..., "hi": ..., "mr": ...}
@@ -176,50 +177,83 @@ _QUALIFIER_STOPWORDS = {
 }
 
 
+# A negator's scope ends when a new clause starts with its own subject+verb:
+# "I don't have diabetes AND I HAVE chest pain" — the chest pain is positive.
+# A bare list after the negator is still inside its scope, which is why commas
+# and a lone "and"/"or" do NOT reset it: "I don't have vomiting, breathing
+# problems and chest pain" denies all three.
+_NEW_CLAUSE_RE = re.compile(
+    r"\b(?:i|we|he|she|they|patient)\s*(?:'ve|'m|'s)?\s*"
+    r"(?:have|had|has|am|is|are|was|were|feel|feels|felt|get|got|getting|experience|experiencing|do have)\b",
+    re.IGNORECASE,
+)
+_CONTRAST_RE = re.compile(r"\b(?:" + "|".join(_CONTRAST_CONJUNCTIONS) + r")\b", re.IGNORECASE)
+_SENTENCE_BOUNDARIES = ".;!?\n"
+_TOKEN_RE = re.compile(r"\S+")
+_TOKEN_PUNCTUATION = ".,!?\"'()[]{}—–-"
+
+
 def _is_negated(text: str, start: int, end: int) -> bool:
-    """Clause-aware check if a token matched at [start:end] in text is negated."""
+    """Is the concept matched at [start:end] denied by the patient?
+
+    Negation in spoken intake runs left to right: a negator denies what FOLLOWS
+    it, up to the end of its clause. So this only ever looks backwards. Scanning
+    forwards (the previous behaviour) made "I have fever, no vomiting" read as a
+    denial of the fever — losing a genuine positive, which is the more dangerous
+    direction of the two.
+    """
     prefix = text[:start]
-    last_boundary = max(
-        prefix.rfind("."), prefix.rfind(";"), prefix.rfind("!"), prefix.rfind("?"),
-        prefix.rfind("\n")
-    )
-    clause_prefix = prefix[last_boundary + 1:] if last_boundary != -1 else prefix
-    contrast_match = re.search(r'\b(?:' + '|'.join(_CONTRAST_CONJUNCTIONS) + r')\b', clause_prefix, re.IGNORECASE)
-    if contrast_match:
-        clause_prefix = clause_prefix[contrast_match.end():]
 
-    pre_tokens = [w.strip(".,!?\"'()[]{}—–-") for w in clause_prefix.split() if w.strip(".,!?\"'()[]{}—–-")]
-    for token in pre_tokens[-8:]:
-        if token.lower() in _ALL_NEGATORS:
-            return True
+    # Start of the current clause: after the last sentence break...
+    clause_start = max(prefix.rfind(ch) for ch in _SENTENCE_BOUNDARIES) + 1
+    clause = prefix[clause_start:]
 
-    suffix = text[end:]
-    first_boundary = len(suffix)
-    for char in [".", ";", "!", "?", "\n"]:
-        idx = suffix.find(char)
-        if idx != -1 and idx < first_boundary:
-            first_boundary = idx
-    clause_suffix = suffix[:first_boundary]
-    contrast_suffix_match = re.search(r'\b(?:' + '|'.join(_CONTRAST_CONJUNCTIONS) + r')\b', clause_suffix, re.IGNORECASE)
-    if contrast_suffix_match:
-        clause_suffix = clause_suffix[:contrast_suffix_match.start()]
+    # ...and after the last contrast conjunction ("I don't feel dizzy BUT I feel weak").
+    contrasts = _CONTRAST_RE.findall(clause)
+    if contrasts:
+        clause = clause[_CONTRAST_RE.search(clause, clause.rfind(contrasts[-1])).end():]
 
-    post_tokens = [w.strip(".,!?\"'()[]{}—–-") for w in clause_suffix.split() if w.strip(".,!?\"'()[]{}—–-")]
-    for token in post_tokens[:4]:
-        if token.lower() in _ALL_NEGATORS:
-            return True
-
-    return False
+    # A negator only counts if no new subject+verb clause has started since.
+    last_negator = -1
+    for match in _TOKEN_RE.finditer(clause):
+        if match.group(0).strip(_TOKEN_PUNCTUATION).lower() in _ALL_NEGATORS:
+            last_negator = match.start()
+    if last_negator < 0:
+        return False
+    return _NEW_CLAUSE_RE.search(clause, last_negator) is None
 
 
-def _negated(text: str, start: int) -> bool:
-    return _is_negated(text, start, start + 4)
+def _negated(text: str, start: int, end: Optional[int] = None) -> bool:
+    """Backwards-compatible wrapper. `end` defaults to the end of the word at
+    `start` rather than a fixed slice — the old `start + 4` cut long phrases
+    mid-token."""
+    if end is None:
+        match = _TOKEN_RE.match(text, start)
+        end = match.end() if match else start
+    return _is_negated(text, start, end)
+
+
+@lru_cache(maxsize=512)
+def _keyword_pattern(keyword: str) -> "re.Pattern[str]":
+    """The one matcher for clinical keywords.
+
+    The taxonomy's keywords are deliberately stems ("dizz", "weak", "vomit",
+    "itch"), so a trailing word boundary defeats them — it is why "I feel dizzy"
+    and "I have vomiting" used to match nothing at all. A stem of four or more
+    characters therefore matches its inflections ("dizzy", "vomiting",
+    "weakness", "loose motions"); anything shorter keeps whole-word semantics so
+    transliterations like "dam" (दम, breath) don't fire on "damage".
+    Devanagari has no case/boundary classes here, so it stays a substring match.
+    """
+    lowered = keyword.lower()
+    if not re.search(r"[a-z]", lowered):
+        return re.compile(re.escape(lowered))
+    tail = r"[a-z]*" if len(lowered.replace(" ", "")) >= 4 else r"(?![a-z])"
+    return re.compile(r"(?<![a-z])" + re.escape(lowered) + tail)
 
 
 def _latin_word_match(keyword: str, text: str) -> bool:
-    if re.search(r"[a-z]", keyword):
-        return re.search(r"(?<![a-z])" + re.escape(keyword), text) is not None
-    return keyword in text
+    return _keyword_pattern(keyword).search(text) is not None
 
 
 def _option_word_match(word: str, text: str) -> bool:
@@ -260,22 +294,23 @@ def match_complaints(transcript: str) -> List[str]:
     for c in COMPLAINTS:
         if not c.keywords:
             continue
-        has_positive = False
-        for k in c.keywords:
-            k_lower = k.lower()
-            if re.search(r"[a-z]", k_lower):
-                pat = re.compile(r"(?<![a-z])" + re.escape(k_lower) + r"(?![a-z])")
-            else:
-                pat = re.compile(re.escape(k_lower))
-            for m in pat.finditer(text):
-                if not _is_negated(text, m.start(), m.end()):
-                    has_positive = True
-                    break
-            if has_positive:
-                break
-        if has_positive:
+        if _complaint_state(c, text) == "positive":
             found.append(c.id)
     return found
+
+
+def _complaint_state(complaint: Complaint, text: str) -> Optional[str]:
+    """"positive" if the patient reports this complaint, "negated" if they
+    explicitly denied it, None if they never mentioned it at all. The three are
+    clinically different: a denial is a pertinent negative worth showing the
+    doctor, silence is not."""
+    mentioned = False
+    for keyword in complaint.keywords:
+        for match in _keyword_pattern(keyword).finditer(text):
+            if not _is_negated(text, match.start(), match.end()):
+                return "positive"
+            mentioned = True
+    return "negated" if mentioned else None
 
 
 # ─── Shared questions ─────────────────────────────────────────────────────────
@@ -748,6 +783,75 @@ def text_findings(text: str) -> Set[str]:
                 found.add(finding)
                 break
     return found
+
+
+# Long-term illnesses a patient commonly volunteers (or denies) while narrating,
+# before the structured history question is ever asked. Ids match hx_conditions'
+# option values so the two sources merge instead of duplicating.
+_NARRATIVE_CONDITIONS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
+    ("diabetes", "Diabetes", ("diabet", "sugar ki bimari", "मधुमेह", "शुगर")),
+    ("hypertension", "High blood pressure", ("hypertens", "high blood pressure", "high bp", "बीपी", "रक्तदाब")),
+    ("heart_disease", "Heart disease", ("heart disease", "heart problem", "दिल की बीमारी", "हृदयविकार")),
+    ("asthma", "Asthma or lung disease", ("asthma", "दमा", "अस्थमा")),
+    ("thyroid", "Thyroid problem", ("thyroid", "थायरॉइड")),
+    ("kidney_disease", "Kidney disease", ("kidney", "गुर्दे", "मूत्रपिंड")),
+)
+
+
+def scan_narrative(text: str) -> Dict[str, List[Dict[str, str]]]:
+    """Split a free-text narration into what the patient reported and what they
+    explicitly denied.
+
+    This is the negation-safe reading of a spoken complaint: a concept is only
+    "positive" when it appears un-negated, and only "negative" when the patient
+    actually said they did not have it. A concept never mentioned appears in
+    neither list — silence is not a denial.
+    """
+    lowered = (text or "").lower()
+    positives: List[Dict[str, str]] = []
+    negatives: List[Dict[str, str]] = []
+    if not lowered.strip():
+        return {"positives": positives, "negatives": negatives}
+    seen: Set[str] = set()
+
+    def record(key: str, label: str, state: Optional[str], kind: str) -> None:
+        if not state or key in seen:
+            return
+        seen.add(key)
+        (positives if state == "positive" else negatives).append({"key": key, "label": label, "kind": kind})
+
+    # Keyed on the engine's own finding code where there is one, so a concept
+    # reported here and confirmed in a structured question is the same concept.
+    for complaint in COMPLAINTS:
+        if complaint.keywords:
+            key = complaint.findings[0] if complaint.findings else complaint.id
+            record(key, loc(complaint.label, "en"), _complaint_state(complaint, lowered), "symptom")
+
+    for finding, phrases in _TEXT_FINDINGS:
+        state = None
+        for phrase in phrases:
+            idx = lowered.find(phrase.lower())
+            if idx < 0:
+                continue
+            if not _is_negated(lowered, idx, idx + len(phrase)):
+                state = "positive"
+                break
+            state = "negated"
+        record(finding, FINDING_LABELS.get(finding, finding.replace("_", " ")), state, "symptom")
+
+    for key, label, keywords in _NARRATIVE_CONDITIONS:
+        state = None
+        for keyword in keywords:
+            for match in _keyword_pattern(keyword).finditer(lowered):
+                if not _is_negated(lowered, match.start(), match.end()):
+                    state = "positive"
+                    break
+                state = "negated"
+            if state == "positive":
+                break
+        record(key, label, state, "condition")
+
+    return {"positives": positives, "negatives": negatives}
 
 
 def build_context(complaints: Sequence[str], framework: str, answers: Dict[str, Dict[str, Any]],

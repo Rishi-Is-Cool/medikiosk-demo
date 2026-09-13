@@ -385,6 +385,41 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .subcard-cc { font-size: var(--fs-xl); font-weight: var(--weight-bold); display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
 
+/* ---- Clinical summary: the generated HPI plus reported/denied findings.
+   Sits directly under Primary Clinical Info because it is what the doctor
+   should read first — the patient's verbatim narration is now a disclosure
+   inside the complaint subcard rather than the complaint itself. */
+.summary-hpi {
+  font-size: 15px; line-height: 1.55; color: var(--text-1);
+  margin-bottom: var(--space-3);
+}
+.summary-findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); }
+.finding-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.finding-list li {
+  font-size: 15px; display: flex; align-items: baseline; gap: var(--space-2);
+  flex-wrap: wrap; padding-left: var(--space-3); position: relative;
+}
+.finding-list li::before {
+  content: ""; position: absolute; left: 0; top: .55em;
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.finding-list.positive li::before { background: var(--emergency, #b3261e); }
+.finding-list.negative li::before { background: var(--line); }
+.finding-list.negative li { color: var(--text-2); }
+
+.patient-words { margin-top: var(--space-2); font-size: 14px; }
+.patient-words > summary {
+  cursor: pointer; font-family: var(--font-mono); font-size: 12px;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text-3);
+}
+.patient-words > p { margin-top: 6px; color: var(--text-2); line-height: 1.5; }
+
+.sc-group {
+  display: block; grid-column: 1 / -1; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px;
+}
+.sc-ayush dt, .sc-ayush dd { color: var(--text-2); }
+
 .allergy-banner {
   display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;
   margin-top: var(--space-3); padding: var(--space-2) var(--space-3);
